@@ -151,7 +151,7 @@ export async function POST(request, { params }) {
         authMethod: 'password',
         loginUrl,
         username,
-        password, // passed in memory to worker, NEVER saved to database or logs
+        password, // passed in memory to assessment runner, NEVER saved to database or logs
         skipAuthenticatedTesting: false,
       };
     }

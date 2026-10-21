@@ -276,7 +276,7 @@ function LiveTestingContent() {
             <span>Playwright Website Inspection & Evidence Engine</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Automated Chromium browser worker executing DPDP Act 2023 compliance scenarios on authorized targets.
+            Direct Chromium browser engine executing DPDP Act 2023 compliance scenarios on authorized targets inside Vercel Functions.
           </p>
         </div>
 
@@ -381,7 +381,7 @@ function LiveTestingContent() {
               )}
             </div>
             <div className="text-[11px] text-slate-500">
-              SSRF Protection: Active &bull; Worker Isolation: Sandboxed Context
+              SSRF Protection: Active &bull; Direct Execution: Sandboxed Context
             </div>
           </div>
         )}

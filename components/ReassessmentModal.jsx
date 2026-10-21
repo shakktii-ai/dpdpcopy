@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   RotateCcw,
@@ -34,12 +34,28 @@ export default function ReassessmentModal({
   const [showPassword, setShowPassword] = useState(false);
   const [authConfirmed, setAuthConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState('');
+
+  // Live seconds timer during direct execution
+  useEffect(() => {
+    let timer = null;
+    if (loading) {
+      timer = setInterval(() => {
+        setElapsed((sec) => sec + 1);
+      }, 1000);
+    } else {
+      setElapsed(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [loading]);
 
   if (!isOpen) return null;
 
   const nextSequence = currentSequence + 1;
-  const assessmentId = assessment?._id || assessment?.assessmentId;
+  const assessmentId = assessment?._id || assessment?.assessmentId || assessment?.id;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,6 +78,7 @@ export default function ReassessmentModal({
 
     try {
       setLoading(true);
+      setError('');
       const res = await fetch(`/api/assessments/${assessmentId}/reassess`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -75,16 +92,34 @@ export default function ReassessmentModal({
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+      const data = await res.json().catch(() => ({}));
+
+      // Handle 409 Conflict: another run is active for this target, navigate directly to it
+      if (res.status === 409 && (data.activeAssessmentId || data.assessmentId)) {
+        const activeTargetId = String(data.activeAssessmentId || data.assessmentId);
+        onClose();
+        router.push(`/portal/assessments/${activeTargetId}`);
+        window.location.assign(`/portal/assessments/${activeTargetId}`);
+        return;
+      }
+
+      const nextAssessmentId = data.assessmentId ? String(data.assessmentId) : null;
+      if (!nextAssessmentId) {
         throw new Error(data.error || 'Failed to initiate reassessment.');
       }
 
       onClose();
-      // Redirect to the new live assessment monitoring page
-      router.push(`/portal/assessments/${data.assessmentId}`);
+      // Directly navigate to the newly created live assessment page
+      router.push(`/portal/assessments/${nextAssessmentId}`);
+      // Hard redirect to guarantee page transitions to the new assessment detail record
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && !window.location.pathname.includes(nextAssessmentId)) {
+          window.location.assign(`/portal/assessments/${nextAssessmentId}`);
+        }
+      }, 200);
     } catch (err) {
-      setError(err.message);
+      console.error('Reassessment error:', err);
+      setError(err.message || 'Something went wrong while initiating reassessment.');
     } finally {
       setLoading(false);
     }
@@ -285,6 +320,30 @@ export default function ReassessmentModal({
             </div>
           )}
 
+          {/* Live Progress Banner during Direct Execution */}
+          {loading && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold flex items-center gap-2 text-[#2d523e]">
+                  <span className="w-3.5 h-3.5 border-2 border-[#2d523e] border-t-transparent rounded-full animate-spin" />
+                  Direct Reassessment in Progress
+                </span>
+                <span className="font-mono text-[11px] font-bold text-[#2d523e]">
+                  {elapsed}s
+                </span>
+              </div>
+              <div className="w-full bg-emerald-200/60 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-[#2d523e] h-full transition-all duration-1000 rounded-full"
+                  style={{ width: `${Math.min(95, 10 + elapsed * 2.5)}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-emerald-800 leading-tight">
+                Running direct Playwright inspection, evaluating statutory notices, and capturing evidence. You will be automatically redirected to your new assessment details upon completion.
+              </p>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-3">
             <button
@@ -300,12 +359,12 @@ export default function ReassessmentModal({
               type="submit"
               disabled={loading}
               id="confirm-reassessment-btn"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#2d523e] hover:bg-[#234232] text-white shadow-xs transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#2d523e] hover:bg-[#234232] text-white shadow-xs transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
               <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>
                 {loading
-                  ? 'Executing Direct Assessment (~30-50s)...'
+                  ? `Executing Direct Assessment (${elapsed}s)...`
                   : isRetry
                   ? 'Retry Assessment Now'
                   : `Start Reassessment (Run #${nextSequence})`}

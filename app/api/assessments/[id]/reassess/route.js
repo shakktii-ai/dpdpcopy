@@ -4,7 +4,7 @@ import Assessment from '@/models/Assessment';
 import TestRun from '@/models/TestRun';
 import ApprovedTarget from '@/models/ApprovedTarget';
 import AuditLog from '@/models/AuditLog';
-import { requireAuth, ROLES } from '@/lib/auth';
+import { requireAuth, checkOrganizationAccess, ROLES } from '@/lib/auth';
 import { executeInspectionRun } from '@/lib/assessment-runner';
 import { emitAssessmentEvent } from '@/lib/event-bus';
 import { validateTargetUrl } from '@/lib/security';
@@ -37,9 +37,8 @@ export async function POST(request, { params }) {
 
     const targetOrgId = prevAssessment.organization?._id || prevAssessment.organization;
 
-    // RBAC: Verify ownership (unless platform admin)
-    const isPlatformAdmin = session.role === 'admin' || session.role === ROLES.PLATFORM_ADMINISTRATOR;
-    if (!isPlatformAdmin && String(targetOrgId) !== String(session.organizationId)) {
+    // RBAC: Verify ownership (unless platform admin or reviewer)
+    if (!checkOrganizationAccess(session, targetOrgId)) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized: You do not have permission to reassess this website.' },
         { status: 403 }
@@ -85,7 +84,8 @@ export async function POST(request, { params }) {
     // Check for an active reassessment already running for this target to prevent duplicate clicks
     const existingActiveRun = await TestRun.findOne({
       targetId: approvedTarget._id,
-      status: { $in: ['queued', 'starting_browser', 'inspecting_website', 'capturing_evidence'] },
+      status: { $in: ['queued', 'starting_browser', 'inspecting_website', 'capturing_evidence', 'running'] },
+      updatedAt: { $gte: new Date(Date.now() - 60 * 1000) },
     });
 
     if (existingActiveRun) {
@@ -95,6 +95,8 @@ export async function POST(request, { params }) {
           error: 'An automated assessment is already actively running for this website. Please wait for it to complete.',
           activeRunId: existingActiveRun._id,
           activeAssessmentId: existingActiveRun.assessmentId,
+          assessmentId: existingActiveRun.assessmentId,
+          testRunId: existingActiveRun._id,
         },
         { status: 409 }
       );
@@ -244,19 +246,20 @@ export async function POST(request, { params }) {
 
     return NextResponse.json(
       {
-        success: isSuccess,
+        success: true,
         message: isSuccess
           ? `Reassessment Run #${sequenceNumber} completed successfully.`
           : `Reassessment Run #${sequenceNumber} finished with status: ${finishedRun?.status || 'failed'}.`,
-        assessmentId: newAssessment._id,
-        testRunId: testRun._id,
+        assessmentId: String(newAssessment._id),
+        testRunId: String(testRun._id),
         sequenceNumber,
-        previousAssessmentId: prevAssessment._id,
-        testRun: finishedRun,
-        assessment: finishedAssessment,
+        previousAssessmentId: String(prevAssessment._id),
+        testRun: finishedRun || testRun,
+        assessment: finishedAssessment || newAssessment,
+        isCompleted: isSuccess,
         error: isSuccess ? null : (finishedRun?.errorMessage || 'Reassessment encountered errors'),
       },
-      { status: isSuccess ? 200 : (finishedRun?.status === 'failed' ? 400 : 200) }
+      { status: 200 }
     );
   } catch (err) {
     console.error('Error initiating reassessment:', err);

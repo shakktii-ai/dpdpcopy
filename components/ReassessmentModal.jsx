@@ -109,14 +109,8 @@ export default function ReassessmentModal({
       }
 
       onClose();
-      // Directly navigate to the newly created live assessment page
-      router.push(`/portal/assessments/${nextAssessmentId}`);
-      // Hard redirect to guarantee page transitions to the new assessment detail record
-      setTimeout(() => {
-        if (typeof window !== 'undefined' && !window.location.pathname.includes(nextAssessmentId)) {
-          window.location.assign(`/portal/assessments/${nextAssessmentId}`);
-        }
-      }, 200);
+      // Immediately navigate to the live assessment page
+      window.location.assign(`/portal/assessments/${nextAssessmentId}`);
     } catch (err) {
       console.error('Reassessment error:', err);
       setError(err.message || 'Something went wrong while initiating reassessment.');
@@ -320,26 +314,17 @@ export default function ReassessmentModal({
             </div>
           )}
 
-          {/* Live Progress Banner during Direct Execution */}
+          {/* Live Progress Banner during Redirection */}
           {loading && (
             <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold flex items-center gap-2 text-[#2d523e]">
                   <span className="w-3.5 h-3.5 border-2 border-[#2d523e] border-t-transparent rounded-full animate-spin" />
-                  Direct Reassessment in Progress
+                  Initiating Live Assessment...
                 </span>
-                <span className="font-mono text-[11px] font-bold text-[#2d523e]">
-                  {elapsed}s
-                </span>
-              </div>
-              <div className="w-full bg-emerald-200/60 h-1.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-[#2d523e] h-full transition-all duration-1000 rounded-full"
-                  style={{ width: `${Math.min(95, 10 + elapsed * 2.5)}%` }}
-                />
               </div>
               <p className="text-[11px] text-emerald-800 leading-tight">
-                Running direct Playwright inspection, evaluating statutory notices, and capturing evidence. You will be automatically redirected to your new assessment details upon completion.
+                Creating fresh assessment record and opening real-time browser inspection view...
               </p>
             </div>
           )}
@@ -364,7 +349,7 @@ export default function ReassessmentModal({
               <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>
                 {loading
-                  ? `Executing Direct Assessment (${elapsed}s)...`
+                  ? 'Initiating Live Assessment...'
                   : isRetry
                   ? 'Retry Assessment Now'
                   : `Start Reassessment (Run #${nextSequence})`}

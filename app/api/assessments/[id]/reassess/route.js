@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Assessment from '@/models/Assessment';
 import TestRun from '@/models/TestRun';
@@ -230,34 +230,68 @@ export async function POST(request, { params }) {
       url: prevAssessment.targetUrl,
     });
 
-    // Directly execute and await the complete browser reassessment pipeline inside this Vercel Function
-    try {
-      await executeInspectionRun(testRun._id, authOptions);
-    } catch (runErr) {
-      console.error(`[Direct Reassessment Error for ${testRun._id}]:`, runErr);
+    // Check if caller explicitly requested synchronous completion (e.g. CLI test scripts)
+    const isSyncRequested = Boolean(body?.sync);
+
+    if (isSyncRequested) {
+      // Synchronous execution path (e.g. CLI automated test suites)
+      try {
+        await executeInspectionRun(testRun._id, authOptions);
+      } catch (runErr) {
+        console.error(`[Direct Reassessment Error for ${testRun._id}]:`, runErr);
+      }
+
+      const [finishedRun, finishedAssessment] = await Promise.all([
+        TestRun.findById(testRun._id).lean(),
+        Assessment.findById(newAssessment._id).lean(),
+      ]);
+
+      const isSuccess = finishedRun?.status === 'completed';
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: isSuccess
+            ? `Reassessment Run #${sequenceNumber} completed successfully.`
+            : `Reassessment Run #${sequenceNumber} finished with status: ${finishedRun?.status || 'failed'}.`,
+          assessmentId: String(newAssessment._id),
+          testRunId: String(testRun._id),
+          sequenceNumber,
+          previousAssessmentId: String(prevAssessment._id),
+          testRun: finishedRun || testRun,
+          assessment: finishedAssessment || newAssessment,
+          isCompleted: isSuccess,
+          error: isSuccess ? null : (finishedRun?.errorMessage || 'Reassessment encountered errors'),
+        },
+        { status: 200 }
+      );
     }
 
-    const [finishedRun, finishedAssessment] = await Promise.all([
-      TestRun.findById(testRun._id).lean(),
-      Assessment.findById(newAssessment._id).lean(),
-    ]);
-
-    const isSuccess = finishedRun?.status === 'completed';
+    // Direct asynchronous execution: schedule runner in background and return immediate assessmentId for live stream navigation
+    try {
+      after(async () => {
+        try {
+          await executeInspectionRun(testRun._id, authOptions);
+        } catch (runErr) {
+          console.error(`[Background Reassessment Error for ${testRun._id}]:`, runErr);
+        }
+      });
+    } catch (afterErr) {
+      executeInspectionRun(testRun._id, authOptions).catch((runErr) => {
+        console.error(`[Background Reassessment Error for ${testRun._id}]:`, runErr);
+      });
+    }
 
     return NextResponse.json(
       {
         success: true,
-        message: isSuccess
-          ? `Reassessment Run #${sequenceNumber} completed successfully.`
-          : `Reassessment Run #${sequenceNumber} finished with status: ${finishedRun?.status || 'failed'}.`,
+        message: `Reassessment Run #${sequenceNumber} initiated. Live inspection running in real-time.`,
         assessmentId: String(newAssessment._id),
         testRunId: String(testRun._id),
         sequenceNumber,
         previousAssessmentId: String(prevAssessment._id),
-        testRun: finishedRun || testRun,
-        assessment: finishedAssessment || newAssessment,
-        isCompleted: isSuccess,
-        error: isSuccess ? null : (finishedRun?.errorMessage || 'Reassessment encountered errors'),
+        status: 'running',
+        isCompleted: false,
       },
       { status: 200 }
     );

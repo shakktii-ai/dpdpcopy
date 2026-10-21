@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import connectDB from '../../../lib/mongodb';
 import TestRun from '../../../models/TestRun';
 import ApprovedTarget from '../../../models/ApprovedTarget';
@@ -198,37 +198,69 @@ export async function POST(request) {
       status: 'success',
     });
 
-    // Directly execute and await the complete browser assessment pipeline inside this Vercel Function
-    try {
-      await executeInspectionRun(testRun._id, options);
-    } catch (runErr) {
-      console.error(`[Direct Execution Error for ${testRun._id}]:`, runErr);
+    const isSyncRequested = Boolean(options.sync);
+
+    if (isSyncRequested) {
+      // Synchronous execution path (e.g. CLI automated test suites)
+      try {
+        await executeInspectionRun(testRun._id, options);
+      } catch (runErr) {
+        console.error(`[Direct Execution Error for ${testRun._id}]:`, runErr);
+      }
+
+      const [finishedRun, finishedAssessment, scenarioResults, evidenceList, observations] = await Promise.all([
+        TestRun.findById(testRun._id).populate('targetId').populate('assessmentId').lean(),
+        Assessment.findById(assessment._id).lean(),
+        ScenarioResult.find({ testRunId: testRun._id }).lean(),
+        Evidence.find({ testRunId: testRun._id }).lean(),
+        StructuredObservation.find({ testRunId: testRun._id }).lean(),
+      ]);
+
+      const isSuccess = finishedRun?.status === 'completed';
+
+      return NextResponse.json(
+        {
+          success: true,
+          assessmentId: String(assessment._id),
+          testRunId: String(testRun._id),
+          status: finishedRun?.status || testRun.status,
+          isCompleted: isSuccess,
+          testRun: finishedRun || testRun,
+          assessment: finishedAssessment || assessment,
+          scenarioResults: scenarioResults || [],
+          evidenceList: evidenceList || [],
+          observations: observations || [],
+          error: isSuccess ? null : (finishedRun?.errorMessage || 'Inspection encountered errors'),
+        },
+        { status: 200 }
+      );
     }
 
-    // Retrieve final results
-    const [finishedRun, finishedAssessment, scenarioResults, evidenceList, observations] = await Promise.all([
-      TestRun.findById(testRun._id).populate('targetId').populate('assessmentId').lean(),
-      Assessment.findById(assessment._id).lean(),
-      ScenarioResult.find({ testRunId: testRun._id }).lean(),
-      Evidence.find({ testRunId: testRun._id }).lean(),
-      StructuredObservation.find({ testRunId: testRun._id }).lean(),
-    ]);
-
-    const isSuccess = finishedRun?.status === 'completed';
+    // Direct asynchronous execution: schedule runner in background and return immediate assessmentId for live stream navigation
+    try {
+      after(async () => {
+        try {
+          await executeInspectionRun(testRun._id, options);
+        } catch (runErr) {
+          console.error(`[Background Execution Error for ${testRun._id}]:`, runErr);
+        }
+      });
+    } catch (afterErr) {
+      executeInspectionRun(testRun._id, options).catch((runErr) => {
+        console.error(`[Background Execution Error for ${testRun._id}]:`, runErr);
+      });
+    }
 
     return NextResponse.json(
       {
         success: true,
         assessmentId: String(assessment._id),
         testRunId: String(testRun._id),
-        status: finishedRun?.status || testRun.status,
-        isCompleted: isSuccess,
-        testRun: finishedRun || testRun,
-        assessment: finishedAssessment || assessment,
-        scenarioResults: scenarioResults || [],
-        evidenceList: evidenceList || [],
-        observations: observations || [],
-        error: isSuccess ? null : (finishedRun?.errorMessage || 'Inspection encountered errors'),
+        status: 'running',
+        currentStep: 'Initializing direct browser inspection',
+        isCompleted: false,
+        testRun,
+        assessment,
       },
       { status: 200 }
     );

@@ -505,15 +505,8 @@ export default function CustomerOnboardingPage() {
         sessionStorage.removeItem('dpdp_active_submission');
       }
 
-      // 3. Automatically navigate to Assessment Detail page
-      router.push(`/portal/assessments/${targetAssessmentId}`);
-
-      // Fallback navigation guard in case Next.js client router is slow or interrupted
-      setTimeout(() => {
-        if (typeof window !== 'undefined' && !window.location.pathname.includes(String(targetAssessmentId))) {
-          window.location.assign(`/portal/assessments/${targetAssessmentId}`);
-        }
-      }, 1200);
+      // 3. Automatically navigate immediately to Assessment Detail page
+      window.location.assign(`/portal/assessments/${targetAssessmentId}`);
     } catch (err) {
       console.error('Onboarding start error:', err);
       setErrorMessage(err.message || 'Something went wrong while starting the assessment. Please try again.');

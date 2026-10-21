@@ -129,6 +129,10 @@ const TestRunSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    stageTimings: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     authTestingResult: {
       status: {
         type: String,

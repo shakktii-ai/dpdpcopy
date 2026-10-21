@@ -306,6 +306,7 @@ export default function CustomerReportPage({ params }) {
             { key: 'needs_review', label: `Needs Review (${scenarioCounts.needs_review})` },
             { key: 'pass', label: `Compliant (${scenarioCounts.pass})` },
             { key: 'excluded', label: `Excluded (${scenarioCounts.excluded})` },
+            { key: 'board_governance', label: 'Board References & Governance' },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -372,6 +373,8 @@ export default function CustomerReportPage({ params }) {
 
                       {/* Statutory Metadata Strip */}
                       <div className="flex items-center gap-2.5 flex-wrap text-[11px] text-stone-500 font-mono pt-0.5">
+                        <span>Section: {sc.sectionReference || sc.dpdpReference}</span>
+                        <span>&bull;</span>
                         <span>Source: {sc.officialSource || 'DPDP Act, 2023 & DPDP Rules, 2025'}</span>
                         <span>&bull;</span>
                         <span>Effective: {sc.effectiveDate || '2023-08-11'}</span>

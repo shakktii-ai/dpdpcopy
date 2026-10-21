@@ -14,7 +14,9 @@ export default function AppShell({ children }) {
     pathname === '/' ||
     pathname.startsWith('/portal') ||
     pathname === '/login' ||
-    pathname === '/register';
+    pathname === '/register' ||
+    pathname === '/documents' ||
+    pathname.startsWith('/documents');
 
   if (isCustomerRoute) {
     return (

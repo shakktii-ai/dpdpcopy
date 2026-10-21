@@ -59,6 +59,10 @@ const AssessmentProfileSchema = new mongoose.Schema(
       trim: true
     },
     websiteFeatures: [WebsiteFeatureSchema],
+    websiteCapabilities: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     otherFeaturesDescription: {
       type: String,
       trim: true
@@ -73,6 +77,16 @@ const AssessmentProfileSchema = new mongoose.Schema(
         'combined_assessment'
       ],
       default: 'website_with_documents'
+    },
+    isConsentManager: {
+      type: Boolean,
+      default: false,
+      description: 'True if certified registered Consent Manager under Section 6(9)'
+    },
+    isSignificantDataFiduciary: {
+      type: Boolean,
+      default: false,
+      description: 'True if designated Significant Data Fiduciary under Section 10'
     },
     loginWorkflowDetails: {
       hasAuthTesting: { type: Boolean, default: false },

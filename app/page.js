@@ -126,91 +126,164 @@ export default function PublicLandingPage() {
         </div>
       </section>
 
-      {/* What We Check Section */}
-      <section id="checks" className="space-y-8 scroll-mt-24">
-        <div className="text-center space-y-2 max-w-xl mx-auto">
-          <span className="text-xs font-semibold text-[#2d523e] uppercase tracking-wider block">
-            Scope of Assessment
-          </span>
+      {/* Statutory Compliance Stages (7-Stage Pipeline) */}
+      <section id="compliance-stages" className="space-y-8 scroll-mt-24">
+        <div className="text-center space-y-2 max-w-2xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#eaf2ed] border border-[#d0e2d5] text-[#2d523e] text-xs font-semibold">
+            <Scale className="w-3.5 h-3.5" />
+            <span>Statutory Compliance Stages &bull; DPDP Act 2023 & Rules 2025</span>
+          </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-stone-900">
-            What the Assessment Checks
+            Statutory Compliance Stages
           </h2>
           <p className="text-xs sm:text-sm text-stone-500">
-            Every inspection aligns with specific statutory requirements of the Digital Personal Data Protection Act, 2023.
+            Every inspection aligns with specific statutory requirements of the Digital Personal Data Protection Act, 2023 and DPDP Rules, 2025.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {/* Stage 1 */}
           <div className="p-5 rounded-2xl bg-white border border-stone-200/90 shadow-2xs space-y-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e]">
-                Section 5
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e] border border-[#d0e2d5]">
+                Stage 1 &bull; Sandbox Pre-flight
               </span>
-              <h3 className="text-sm font-bold text-stone-900">Privacy Notice Clarity</h3>
+              <span className="text-[10px] font-mono text-stone-400">Sec 8 & SSRF</span>
             </div>
+            <h3 className="text-sm font-bold text-stone-900">Authorized Domain Verification</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Checks that itemized notices declare what personal data is collected, the specific purpose, user rights, and Grievance Officer contacts.
+              Validating SSL, domain authorization, and SSRF boundary.
             </p>
           </div>
 
+          {/* Stage 2 */}
           <div className="p-5 rounded-2xl bg-white border border-stone-200/90 shadow-2xs space-y-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e]">
-                Section 6(1)
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e] border border-[#d0e2d5]">
+                Stage 2 &bull; Sec 5(1), 6(1)
               </span>
-              <h3 className="text-sm font-bold text-stone-900">Affirmative Consent</h3>
+              <span className="text-[10px] font-mono text-rose-600 font-semibold">Up to ₹250 Cr</span>
             </div>
+            <h3 className="text-sm font-bold text-stone-900">Consent Notice & Cookie Banner</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Ensures cookie banners require positive opt-in and do not use pre-ticked checkboxes or deceptive dark patterns.
+              Inspecting landing page for Sec 5 & 6 opt-in/opt-out mechanisms.
             </p>
           </div>
 
+          {/* Stage 3 */}
           <div className="p-5 rounded-2xl bg-white border border-stone-200/90 shadow-2xs space-y-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e]">
-                Section 6(4)
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e] border border-[#d0e2d5]">
+                Stage 3 &bull; Sec 5 & Rule 3
               </span>
-              <h3 className="text-sm font-bold text-stone-900">Ease of Consent Withdrawal</h3>
+              <span className="text-[10px] font-mono text-rose-600 font-semibold">Up to ₹50 Cr</span>
             </div>
+            <h3 className="text-sm font-bold text-stone-900">Privacy Notice Disclosures</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Verifies that users can withdraw consent with the same ease with which consent was granted (e.g. cookie preference toggle).
+              Examining /privacy for itemized statutory disclosures under Sec 5.
             </p>
           </div>
 
+          {/* Stage 4 */}
           <div className="p-5 rounded-2xl bg-white border border-stone-200/90 shadow-2xs space-y-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e]">
-                Section 8(9)
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e] border border-[#d0e2d5]">
+                Stage 4 &bull; Sec 8(9) & Rule 8
               </span>
-              <h3 className="text-sm font-bold text-stone-900">Grievance Redressal Pathway</h3>
+              <span className="text-[10px] font-mono text-rose-600 font-semibold">Up to ₹50 Cr</span>
             </div>
+            <h3 className="text-sm font-bold text-stone-900">Grievance Redressal & DPO</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Confirms the published presence of a designated Grievance Officer name, official email, and statutory response timeline.
+              Verifying Data Protection Officer contact details and escalation SLA.
             </p>
           </div>
 
+          {/* Stage 5 */}
           <div className="p-5 rounded-2xl bg-white border border-stone-200/90 shadow-2xs space-y-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e]">
-                Section 8(5)
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e] border border-[#d0e2d5]">
+                Stage 5 &bull; Sec 4, 6(1)
               </span>
-              <h3 className="text-sm font-bold text-stone-900">Credential & Form Safeguards</h3>
+              <span className="text-[10px] font-mono text-rose-600 font-semibold">Up to ₹50 Cr</span>
             </div>
+            <h3 className="text-sm font-bold text-stone-900">Data Minimization on Forms</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Validates HTTPS transmission encryption, credential masking in password fields, and prevention of sensitive URL leaks.
+              Scanning interactive contact forms for purpose consent checkboxes.
             </p>
           </div>
 
+          {/* Stage 6 */}
           <div className="p-5 rounded-2xl bg-white border border-stone-200/90 shadow-2xs space-y-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e]">
-                Rule 3 (2025)
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e] border border-[#d0e2d5]">
+                Stage 6 &bull; Sec 6(4) & Rule 5
               </span>
-              <h3 className="text-sm font-bold text-stone-900">Multi-Lingual Notice Access</h3>
+              <span className="text-[10px] font-mono text-rose-600 font-semibold">Up to ₹50 Cr</span>
             </div>
+            <h3 className="text-sm font-bold text-stone-900">Consent Withdrawal & Rights</h3>
             <p className="text-xs text-stone-600 leading-relaxed">
-              Reviews whether privacy information is available in English and scheduled Indian languages for wider accessibility.
+              Verifying granular purpose toggles and unconditional withdrawal portal.
             </p>
+          </div>
+
+          {/* Stage 7 */}
+          <div className="p-5 rounded-2xl bg-white border border-stone-200/90 shadow-2xs space-y-2.5 md:col-span-2 lg:col-span-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded bg-[#eaf2ed] text-[#2d523e] border border-[#d0e2d5]">
+                Stage 7 &bull; Sec 8(5) & Rule 6
+              </span>
+              <span className="text-[10px] font-mono text-rose-600 font-semibold">Up to ₹250 Cr (Breach Penalty)</span>
+            </div>
+            <h3 className="text-sm font-bold text-stone-900">Authentication Safeguards (Sec 8(5))</h3>
+            <p className="text-xs text-stone-600 leading-relaxed">
+              Evaluating test account authentication safeguards or public-scope boundary. Validating encryption in transit, credential masking in input forms, and boundary isolation.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 2026 Legal Framework & DPBI Enforcement Notice Card */}
+      <section className="p-6 sm:p-8 rounded-3xl bg-white border border-stone-200/90 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-[#eaf2ed] text-[#2d523e] flex items-center justify-center">
+              <Scale className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-stone-900">
+                2026 Legal Framework & Data Protection Board of India
+              </h3>
+              <span className="text-[11px] text-stone-500 font-mono">
+                Gazette S.O. 4930(E) &bull; Enacted Nov 13, 2025 &bull; Civil Court Powers Under Sec 28
+              </span>
+            </div>
+          </div>
+          <Link
+            href="/documents"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-[#eaf2ed] hover:bg-[#d0e2d5] text-[#2d523e] border border-[#d0e2d5] transition-all self-start sm:self-auto"
+          >
+            <span>Explore 12 DPBI FAQ Items</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <p className="text-xs text-stone-600 leading-relaxed">
+          The DPDP Act, 2023 establishes the <strong>Data Protection Board of India (DPBI)</strong> as an independent statutory adjudicatory authority. 
+          The Board exercises civil court powers to issue summons, require discovery and production of inspection records, examine under oath, and impose statutory financial penalties up to ₹250 Crore per failure.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
+          <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 space-y-1">
+            <span className="font-semibold text-stone-800">Inquiry & Summons</span>
+            <p className="text-[11px] text-stone-500">Board may initiate inquiries upon complaint, reference, or intimations under Section 27.</p>
+          </div>
+          <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 space-y-1">
+            <span className="font-semibold text-stone-800">Interim Orders</span>
+            <p className="text-[11px] text-stone-500">Board may issue interim directions to mitigate ongoing harm to Data Principals.</p>
+          </div>
+          <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 space-y-1">
+            <span className="font-semibold text-stone-800">Appeals to TDSAT</span>
+            <p className="text-[11px] text-stone-500">Appeals against Board orders lie to TDSAT within 60 days under Section 29.</p>
           </div>
         </div>
       </section>

@@ -50,6 +50,7 @@ const FindingSchema = new mongoose.Schema(
     category: {
       type: String,
       enum: [
+        // Legacy categories
         'Notice & Consent',
         'Data Principal Rights',
         'Data Fiduciary Obligations',
@@ -57,6 +58,14 @@ const FindingSchema = new mongoose.Schema(
         'Third-Party Tracking & Cookies',
         'Grievance Redressal Mechanism',
         'Security Safeguards',
+        // 2026 Legal Framework Taxonomy Categories
+        'statutory_reference',
+        'data_fiduciary_obligation',
+        'consent_manager_obligation',
+        'incident_response',
+        'complaint_and_grievance',
+        'appeal_and_enforcement',
+        'informational_only',
       ],
       default: 'Notice & Consent',
       index: true,
@@ -104,6 +113,40 @@ const FindingSchema = new mongoose.Schema(
     recommendedRemediation: {
       type: String,
       required: true,
+    },
+    // 2026 Legal Framework Applicability Metadata
+    legalApplicabilityStatus: {
+      type: String,
+      enum: ['enacted', 'notified', 'in_force', 'not_yet_in_force', 'verification_required'],
+      default: 'in_force',
+      index: true,
+    },
+    effectiveDate: {
+      type: String,
+      default: null,
+    },
+    applicabilityRationale: {
+      type: String,
+      default: '',
+    },
+    officialSource: {
+      type: String,
+      default: 'Digital Personal Data Protection Act, 2023',
+    },
+    registryVersion: {
+      type: String,
+      default: '2026.1',
+    },
+    penaltyReference: {
+      maxPenaltyAmount: { type: String, default: null },
+      maxPenaltyAmountInr: { type: Number, default: null },
+      maxPenaltyText: { type: String, default: null },
+      scheduleEntry: { type: String, default: null },
+      description: { type: String, default: null },
+    },
+    limitations: {
+      type: String,
+      default: '',
     },
     evidenceReferences: [
       {

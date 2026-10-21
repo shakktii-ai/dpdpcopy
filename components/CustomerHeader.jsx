@@ -46,8 +46,10 @@ export default function CustomerHeader() {
   const navLinks = [
     { label: 'Overview', href: '/' },
     { label: 'How It Works', href: '/#how-it-works' },
-    { label: 'What We Check', href: '/#checks' },
-    { label: 'Customer Workspace', href: '/portal' },
+    { label: 'Statutory Stages', href: '/#compliance-stages' },
+    { label: 'Assessments', href: '/portal/assessments' },
+    { label: 'Legal Framework & DPB FAQ', href: '/documents' },
+    { label: 'Workspace', href: '/portal' },
   ];
 
   const isStaffOrAdmin = user && ['admin', 'platform_administrator', 'assessment_reviewer'].includes(user.role);

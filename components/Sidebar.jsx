@@ -53,10 +53,10 @@ const NAV_ITEMS = [
     badge: null
   },
   {
-    name: 'Privacy Documents',
+    name: 'Legal Framework & FAQ',
     href: '/documents',
     icon: FileText,
-    badge: null
+    badge: '2026'
   },
   {
     name: 'Website Assessments',

@@ -81,6 +81,8 @@ export default function CustomerOnboardingPage() {
     contactPerson: '',
     contactEmail: '',
     country: 'India',
+    isSignificantDataFiduciary: false,
+    isConsentManager: false,
   });
 
   // Step 2: Website State
@@ -395,6 +397,8 @@ export default function CustomerOnboardingPage() {
         legalEntityName: orgData.legalEntityName || orgData.name,
         organizationType: orgData.organizationType,
         industry: orgData.industry,
+        isSignificantDataFiduciary: Boolean(orgData.isSignificantDataFiduciary),
+        isConsentManager: Boolean(orgData.isConsentManager),
         contactDetails: {
           email: orgData.contactEmail,
           primaryContactPerson: orgData.contactPerson,
@@ -713,6 +717,44 @@ export default function CustomerOnboardingPage() {
                     <option value="Media & Entertainment">Media & Entertainment</option>
                     <option value="Other">Other</option>
                   </select>
+                </div>
+              </div>
+
+              {/* DPDP 2026 Special Regulatory Classifications */}
+              <div className="p-3.5 rounded-xl bg-stone-50 border border-stone-200 space-y-2">
+                <span className="font-semibold text-stone-800 block text-xs">
+                  DPDP 2026 Regulatory Classifications (Optional)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={orgData.isSignificantDataFiduciary}
+                      onChange={(e) => setOrgData({ ...orgData, isSignificantDataFiduciary: e.target.checked })}
+                      className="rounded border-stone-300 text-[#2d523e] focus:ring-[#2d523e] mt-0.5"
+                    />
+                    <div>
+                      <span className="font-semibold text-stone-900 block">Significant Data Fiduciary (SDF)</span>
+                      <span className="text-[11px] text-stone-500 leading-tight block">
+                        Designated under Section 10 (enhanced audit, DPO, & DPIA requirements)
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={orgData.isConsentManager}
+                      onChange={(e) => setOrgData({ ...orgData, isConsentManager: e.target.checked })}
+                      className="rounded border-stone-300 text-[#2d523e] focus:ring-[#2d523e] mt-0.5"
+                    />
+                    <div>
+                      <span className="font-semibold text-stone-900 block">Registered Consent Manager</span>
+                      <span className="text-[11px] text-stone-500 leading-tight block">
+                        Operating under Section 6(7)-(9) digital consent framework
+                      </span>
+                    </div>
+                  </label>
                 </div>
               </div>
 

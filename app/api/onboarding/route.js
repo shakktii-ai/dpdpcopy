@@ -188,6 +188,8 @@ export async function POST(request) {
         industry: industry || 'SaaS & Cloud Services',
         description: description ? description.trim() : undefined,
         dpdpRegistrationNumber: dpdpRegistrationNumber ? dpdpRegistrationNumber.trim() : undefined,
+        isSignificantDataFiduciary: Boolean(body.isSignificantDataFiduciary),
+        isConsentManager: Boolean(body.isConsentManager),
         websiteUrl: urlCheck.normalizedUrl,
         websitePurpose: websitePurpose ? websitePurpose.trim() : undefined,
         contactDetails: {
@@ -313,6 +315,8 @@ export async function POST(request) {
       profile.websitePurpose = websitePurpose;
       if (Array.isArray(websiteFeatures)) profile.websiteFeatures = websiteFeatures;
       if (otherFeaturesDescription) profile.otherFeaturesDescription = otherFeaturesDescription.trim();
+      profile.isSignificantDataFiduciary = Boolean(body.isSignificantDataFiduciary || organization.isSignificantDataFiduciary);
+      profile.isConsentManager = Boolean(body.isConsentManager || organization.isConsentManager);
       profile.assessmentMode = assessmentMode || (finalLoginWorkflowDetails?.hasAuthTesting ? 'authorized_login_testing' : 'website_with_documents');
       profile.loginWorkflowDetails = finalLoginWorkflowDetails;
       profile.status = 'ready_for_assessment';
@@ -325,6 +329,8 @@ export async function POST(request) {
         websitePurpose: websitePurpose,
         websiteFeatures: Array.isArray(websiteFeatures) ? websiteFeatures : [],
         otherFeaturesDescription: otherFeaturesDescription?.trim() || undefined,
+        isSignificantDataFiduciary: Boolean(body.isSignificantDataFiduciary || organization.isSignificantDataFiduciary),
+        isConsentManager: Boolean(body.isConsentManager || organization.isConsentManager),
         assessmentMode: assessmentMode || (finalLoginWorkflowDetails?.hasAuthTesting ? 'authorized_login_testing' : 'website_with_documents'),
         loginWorkflowDetails: finalLoginWorkflowDetails,
         scopeSummary:

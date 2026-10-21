@@ -87,6 +87,70 @@ const STATUS_CONFIGS = {
     label: 'Active',
     bg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
     dot: 'bg-emerald-600'
+  },
+
+  // DPDP 2026 Legal Framework & Applicability Statuses
+  in_force: {
+    label: 'In Force',
+    bg: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold',
+    dot: 'bg-emerald-600'
+  },
+  not_yet_in_force: {
+    label: 'Not Yet in Force',
+    bg: 'bg-amber-50 text-amber-800 border-amber-300 font-semibold',
+    dot: 'bg-amber-600'
+  },
+  enacted: {
+    label: 'Enacted',
+    bg: 'bg-sky-50 text-sky-800 border-sky-300 font-semibold',
+    dot: 'bg-sky-600'
+  },
+  notified: {
+    label: 'Notified',
+    bg: 'bg-indigo-50 text-indigo-800 border-indigo-300 font-semibold',
+    dot: 'bg-indigo-600'
+  },
+  verification_required: {
+    label: 'Verification Required',
+    bg: 'bg-purple-50 text-purple-800 border-purple-300 font-semibold',
+    dot: 'bg-purple-600'
+  },
+
+  // DPDP 2026 Taxonomy & Target Classifications
+  statutory_reference: {
+    label: 'Statutory Reference',
+    bg: 'bg-slate-100 text-slate-700 border-slate-300 font-medium',
+    dot: 'bg-slate-500'
+  },
+  data_fiduciary_obligation: {
+    label: 'Data Fiduciary Obligation',
+    bg: 'bg-emerald-50 text-emerald-900 border-emerald-200 font-medium',
+    dot: 'bg-emerald-600'
+  },
+  consent_manager_obligation: {
+    label: 'Consent Manager Framework',
+    bg: 'bg-violet-50 text-violet-800 border-violet-200 font-medium',
+    dot: 'bg-violet-600'
+  },
+  appeal_and_enforcement: {
+    label: 'Appeals & Enforcement',
+    bg: 'bg-rose-50 text-rose-800 border-rose-200 font-medium',
+    dot: 'bg-rose-600'
+  },
+  incident_response: {
+    label: 'Breach Response',
+    bg: 'bg-orange-50 text-orange-800 border-orange-200 font-medium',
+    dot: 'bg-orange-600'
+  },
+  complaint_and_grievance: {
+    label: 'Grievance & Complaints',
+    bg: 'bg-teal-50 text-teal-800 border-teal-200 font-medium',
+    dot: 'bg-teal-600'
+  },
+  manual_verification: {
+    label: 'Manual Verification',
+    bg: 'bg-amber-50 text-amber-800 border-amber-300 font-medium',
+    dot: 'bg-amber-600'
   }
 };
 

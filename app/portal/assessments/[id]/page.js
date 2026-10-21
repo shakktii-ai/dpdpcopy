@@ -30,6 +30,7 @@ import {
   RotateCcw,
   Scale
 } from 'lucide-react';
+import StatusBadge from '@/components/StatusBadge';
 import ReassessmentModal from '@/components/ReassessmentModal';
 
 const MILESTONES = [
@@ -788,11 +789,16 @@ export default function CustomerLiveTestingPage({ params }) {
             )}
           </div>
 
-          {/* 6-Stage Milestone Tracker */}
+          {/* Statutory Compliance Stages Milestone Tracker */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center justify-between">
-              <span>Statutory Compliance Stages</span>
-              <span className="text-[10px] text-slate-400 font-mono">DPDP Act 2023</span>
+              <span className="flex items-center gap-1.5">
+                <Scale className="w-3.5 h-3.5 text-[#2d523e]" />
+                <span>Statutory Compliance Stages</span>
+              </span>
+              <span className="text-[10px] text-[#2d523e] font-mono font-semibold bg-[#eaf2ed] px-2 py-0.5 rounded border border-[#d0e2d5]">
+                DPDP Act 2023 & DPDP Rules 2025
+              </span>
             </h3>
 
             <div className="space-y-3.5">
@@ -933,10 +939,15 @@ export default function CustomerLiveTestingPage({ params }) {
                 className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between space-y-2 shadow-2xs"
               >
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-mono uppercase font-semibold text-slate-500">
-                      {sc.category ? sc.category.replace(/_/g, ' ') : 'Requirement'}
-                    </span>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-mono uppercase font-semibold text-slate-500">
+                        {sc.category ? sc.category.replace(/_/g, ' ') : 'Requirement'}
+                      </span>
+                      {sc.legalApplicabilityStatus && (
+                        <StatusBadge status={sc.legalApplicabilityStatus} size="xs" />
+                      )}
+                    </div>
                     <span
                       className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
                         sc.status === 'passed'
@@ -959,8 +970,13 @@ export default function CustomerLiveTestingPage({ params }) {
                   </p>
                 </div>
 
-                <div className="pt-2 border-t border-slate-200/80 text-[10px] text-slate-400 font-mono">
-                  {sc.dpdpReference || 'DPDP Act 2023'}
+                <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                  <span>{sc.dpdpReference || 'DPDP Act 2023'}</span>
+                  {sc.maxPenaltyText && (
+                    <span className="font-semibold text-rose-600 truncate max-w-[140px]" title={sc.maxPenaltyText}>
+                      {sc.maxPenaltyText}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

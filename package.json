@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:direct": "node --env-file=.env.local scripts/test-direct-execution.mjs"
+    "test:direct": "node --env-file=.env.local scripts/test-direct-execution.mjs",
+    "test:board": "node --env-file=.env.local scripts/test-dpdp-2026-board-requirements.mjs",
+    "test": "node --env-file=.env.local scripts/test-dpdp-2026-board-requirements.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",

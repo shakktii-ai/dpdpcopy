@@ -21,6 +21,7 @@ import {
   Calendar,
   Layers
 } from 'lucide-react';
+import StatusBadge from '@/components/StatusBadge';
 import EmptyState from '@/components/EmptyState';
 
 export default function FindingsPage() {
@@ -28,6 +29,8 @@ export default function FindingsPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [decisionFilter, setDecisionFilter] = useState('all');
+  const [legalStatusFilter, setLegalStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedScreenshot, setSelectedScreenshot] = useState(null);
   
   // Human Review Modal state
@@ -101,6 +104,13 @@ export default function FindingsPage() {
   const filtered = findings.filter((f) => {
     if (statusFilter !== 'all' && f.status !== statusFilter) return false;
     if (decisionFilter !== 'all' && f.reviewerDecision !== decisionFilter) return false;
+    if (legalStatusFilter !== 'all') {
+      const itemStatus = f.legalApplicabilityStatus || f.requirement?.applicabilityStatus || 'in_force';
+      if (itemStatus !== legalStatusFilter) return false;
+    }
+    if (categoryFilter !== 'all') {
+      if (f.category !== categoryFilter && f.requirement?.category !== categoryFilter) return false;
+    }
     return true;
   });
 
@@ -130,40 +140,94 @@ export default function FindingsPage() {
         </Link>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-2 bg-white border border-slate-200 rounded-xl shadow-xs">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] font-semibold text-slate-500 px-2">Status:</span>
-          {['all', 'pass', 'fail', 'needs_review', 'not_applicable', 'not_tested'].map((st) => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
-                statusFilter === st
-                  ? 'bg-[#eaf2ed] text-[#2d523e] font-bold border border-[#d0e2d5]'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {st.replace(/_/g, ' ')}
-            </button>
-          ))}
+      {/* Filter Tabs & Bar */}
+      <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-semibold text-slate-500 px-2">Status:</span>
+            {['all', 'pass', 'fail', 'needs_review', 'not_applicable', 'not_tested'].map((st) => (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium capitalize transition-all ${
+                  statusFilter === st
+                    ? 'bg-[#eaf2ed] text-[#2d523e] font-bold border border-[#d0e2d5]'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {st.replace(/_/g, ' ')}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-semibold text-slate-500 px-2">Review:</span>
+            {['all', 'pending', 'approved', 'amended', 'rejected'].map((dec) => (
+              <button
+                key={dec}
+                onClick={() => setDecisionFilter(dec)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium capitalize transition-all ${
+                  decisionFilter === dec
+                    ? 'bg-[#eaf2ed] text-[#2d523e] border border-[#d0e2d5] font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {dec}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] font-semibold text-slate-500 px-2">Review:</span>
-          {['all', 'pending', 'approved', 'amended', 'rejected'].map((dec) => (
-            <button
-              key={dec}
-              onClick={() => setDecisionFilter(dec)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
-                decisionFilter === dec
-                  ? 'bg-[#eaf2ed] text-[#2d523e] border border-[#d0e2d5] font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {dec}
-            </button>
-          ))}
+        {/* 2026 DPDP Legal Status & Taxonomy Category Filters */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-semibold text-[#2d523e] px-2 flex items-center gap-1">
+              <Scale className="w-3 h-3" />
+              <span>Legal Status:</span>
+            </span>
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'in_force', label: 'In Force' },
+              { key: 'not_yet_in_force', label: 'Not Yet in Force' },
+              { key: 'verification_required', label: 'Verification Required' },
+              { key: 'enacted', label: 'Enacted' }
+            ].map((ls) => (
+              <button
+                key={ls.key}
+                onClick={() => setLegalStatusFilter(ls.key)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                  legalStatusFilter === ls.key
+                    ? 'bg-[#2d523e] text-white font-bold shadow-2xs'
+                    : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200/80'
+                }`}
+              >
+                {ls.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-semibold text-slate-500 px-2">Category:</span>
+            {[
+              { key: 'all', label: 'All Categories' },
+              { key: 'data_fiduciary_obligation', label: 'Fiduciary Obligation' },
+              { key: 'statutory_reference', label: 'Board Governance' },
+              { key: 'consent_manager_obligation', label: 'Consent Manager' },
+              { key: 'appeal_and_enforcement', label: 'Penalties & Appeals' }
+            ].map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setCategoryFilter(cat.key)}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all ${
+                  categoryFilter === cat.key
+                    ? 'bg-slate-800 text-white font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -217,11 +281,20 @@ export default function FindingsPage() {
                       <span className="text-[10px] font-mono font-bold text-[#2d523e] bg-[#eaf2ed] px-2 py-0.5 rounded border border-[#d0e2d5]">
                         {item.requirementId}
                       </span>
+                      <StatusBadge
+                        status={item.legalApplicabilityStatus || item.requirement?.applicabilityStatus || 'in_force'}
+                        size="xs"
+                      />
                       <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${severityColor}`}>
                         {item.severity}
                       </span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                        {item.isWebsiteComplianceCheck !== false && item.requirement?.isWebsiteComplianceCheck !== false
+                          ? 'Website Audited Check'
+                          : 'Board Governance Reference'}
+                      </span>
                       <span className="text-[11px] text-slate-500 font-medium">
-                        {item.category}
+                        {item.category?.replace(/_/g, ' ')}
                       </span>
                     </div>
 
@@ -229,6 +302,23 @@ export default function FindingsPage() {
                       <StatusIcon className="w-4 h-4 flex-shrink-0" />
                       <span>{item.ruleId}: {item.title}</span>
                     </h3>
+
+                    {/* Statutory Metadata Strip */}
+                    <div className="flex items-center gap-3 flex-wrap text-[11px] text-slate-500 pt-0.5 font-mono">
+                      <span>Section: {item.requirement?.sectionOrRule || item.sectionReference || item.ruleId}</span>
+                      <span>&bull;</span>
+                      <span>Effective: {item.effectiveDate || item.requirement?.effectiveDate || '2023-08-11'}</span>
+                      <span>&bull;</span>
+                      <span>Source: {item.officialSource || item.requirement?.officialSource || 'DPDP Act, 2023'}</span>
+                      {(item.penaltyReference?.maxPenaltyText || item.requirement?.penaltyReference?.maxPenaltyAmount) && (
+                        <>
+                          <span>&bull;</span>
+                          <span className="font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
+                            {item.penaltyReference?.maxPenaltyText || `Statutory Cap: Up to ${item.requirement.penaltyReference.maxPenaltyAmount}`}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-auto">
@@ -278,6 +368,19 @@ export default function FindingsPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Statutory Scope & Limitations if present */}
+                {(item.applicabilityRationale || item.limitations) && (
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                    <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                      <Scale className="w-3.5 h-3.5 text-[#2d523e]" />
+                      <span>Statutory Applicability & Scope Rationale:</span>
+                    </span>
+                    <p className="text-slate-600 leading-relaxed">
+                      {item.applicabilityRationale || item.limitations}
+                    </p>
+                  </div>
+                )}
 
                 {/* Remediation Guidance */}
                 <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-200 flex items-start gap-2.5 text-xs">

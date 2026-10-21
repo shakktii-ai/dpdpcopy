@@ -94,6 +94,16 @@ const OrganizationSchema = new mongoose.Schema(
       trim: true,
       description: 'Data Fiduciary Identification Number or CIN'
     },
+    isConsentManager: {
+      type: Boolean,
+      default: false,
+      description: 'True if certified registered Consent Manager under Section 6(9)'
+    },
+    isSignificantDataFiduciary: {
+      type: Boolean,
+      default: false,
+      description: 'True if designated Significant Data Fiduciary under Section 10'
+    },
     websiteUrl: {
       type: String,
       trim: true

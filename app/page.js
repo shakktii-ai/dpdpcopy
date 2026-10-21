@@ -31,7 +31,7 @@ export default function PublicLandingPage() {
         </h1>
 
         <p className="text-base sm:text-lg text-stone-600 leading-relaxed max-w-2xl mx-auto">
-          Evaluate your website's cookie banners, privacy notices, data collection forms, and grievance channels against India's privacy law &mdash; with actionable evidence and clear next steps.
+          Evaluate your website&apos;s cookie banners, privacy notices, data collection forms, and grievance channels against India&apos;s privacy law &mdash; with actionable evidence and clear next steps.
         </p>
 
         {/* Action Buttons */}

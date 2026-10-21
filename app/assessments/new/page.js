@@ -200,7 +200,7 @@ function NewAssessmentContent() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to queue assessment');
+        throw new Error(data.error || 'Failed to initialize assessment');
       }
 
       router.push(`/testing?id=${data.data._id}`);
@@ -543,7 +543,7 @@ function NewAssessmentContent() {
             className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-[#2d523e] hover:bg-[#234232] text-white shadow-xs transition-all disabled:opacity-50"
           >
             {submitting ? (
-              <span>Queueing Assessment...</span>
+              <span>Initializing Assessment...</span>
             ) : (
               <>
                 <span>Initialize Assessment</span>

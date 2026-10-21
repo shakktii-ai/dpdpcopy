@@ -1298,6 +1298,17 @@ export default function CustomerOnboardingPage() {
                   Clicking <strong>Start Website Assessment</strong> will initialize the automated Playwright sandbox, crawl your permitted pages, analyze consent notices, and produce your compliance report.
                 </p>
               </div>
+              {submitting && (
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2 animate-pulse">
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
+                    <span className="font-semibold text-xs">Direct Assessment in Progress...</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 leading-relaxed">
+                    Launching Playwright browser inside Vercel, inspecting website consent and privacy notices, capturing evidence, and synthesizing DPDP compliance findings with Gemini AI. This direct pipeline takes approximately 30–50 seconds. Please keep this tab open.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1309,7 +1320,7 @@ export default function CustomerOnboardingPage() {
               type="button"
               onClick={handleBack}
               disabled={submitting}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:text-stone-900 hover:bg-stone-100 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:text-stone-900 hover:bg-stone-100 transition-colors disabled:opacity-40"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back</span>
@@ -1343,7 +1354,7 @@ export default function CustomerOnboardingPage() {
               {submitting ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Initializing Assessment...</span>
+                  <span>Executing Direct Assessment...</span>
                 </>
               ) : (
                 <>

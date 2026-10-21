@@ -3,11 +3,17 @@ import connectDB from '../../../lib/mongodb';
 import TestRun from '../../../models/TestRun';
 import ApprovedTarget from '../../../models/ApprovedTarget';
 import Assessment from '../../../models/Assessment';
+import ScenarioResult from '../../../models/ScenarioResult';
+import Evidence from '../../../models/Evidence';
+import StructuredObservation from '../../../models/StructuredObservation';
 import AuditLog from '../../../models/AuditLog';
 import { requireAuth } from '../../../lib/auth';
-import { executeInspectionRun } from '../../../lib/browser-worker';
+import { executeInspectionRun } from '../../../lib/assessment-runner';
 import { emitAssessmentEvent } from '../../../lib/event-bus';
 import { redactSensitiveData } from '../../../lib/evidence-redactor';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 /**
  * GET /api/runs
@@ -43,7 +49,8 @@ export async function GET(request) {
 
 /**
  * POST /api/runs
- * Queues a new automated Playwright inspection run on an approved target.
+ * Executes a direct, synchronous automated Playwright inspection run on an approved target.
+ * Runs completely inside the Vercel Function without external workers.
  */
 export async function POST(request) {
   try {
@@ -100,6 +107,24 @@ export async function POST(request) {
       });
     }
 
+    // Prevent duplicate simultaneous runs on the exact same target
+    const duplicateRun = await TestRun.findOne({
+      targetId: target._id,
+      status: { $in: ['running', 'inspecting_website', 'capturing_evidence'] },
+      updatedAt: { $gte: new Date(Date.now() - 60 * 1000) },
+    });
+
+    if (duplicateRun) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'An automated assessment is already actively running for this target. Please wait for it to complete.',
+          activeRunId: duplicateRun._id,
+        },
+        { status: 409 }
+      );
+    }
+
     // Determine whether authenticated testing was requested
     const isAuthRequested = Boolean(
       options.credentials?.enabled &&
@@ -107,13 +132,13 @@ export async function POST(request) {
       (options.credentials?.username || options.credentials?.authMethod === 'password')
     );
 
-    // Create TestRun in queued state
+    // Create TestRun in running state for direct execution
     const testRun = await TestRun.create({
       assessmentId: assessment._id,
       targetId: target._id,
-      status: 'queued',
-      progress: 0,
-      currentStep: 'Queued for Playwright browser inspection',
+      status: 'running',
+      progress: 5,
+      currentStep: 'Initializing direct browser inspection',
       maxPages: options.maxPages || 15,
       maxActions: options.maxActions || 50,
       timeoutSeconds: options.timeoutSeconds || 120,
@@ -132,10 +157,10 @@ export async function POST(request) {
       assessmentId: assessment._id,
       testRunId: testRun._id,
       eventType: 'queued',
-      title: 'Assessment Queued',
-      description: `Test run queued for automated Playwright inspection on ${target.approvedDomain}`,
-      progress: 0,
-      stepName: 'Queued for Playwright browser inspection',
+      title: 'Assessment Started',
+      description: `Test run started for automated Playwright inspection on ${target.approvedDomain}`,
+      progress: 5,
+      stepName: 'Initializing direct browser inspection',
       url: target.targetUrl,
     });
 
@@ -170,19 +195,38 @@ export async function POST(request) {
       status: 'success',
     });
 
-    // In serverless environments (e.g. Vercel), do NOT run unawaited background browser processes.
-    // Serverless containers freeze immediately on response return and lack Chromium binaries.
-    // Instead, leave the run in 'queued' state for the persistent worker daemon to claim and execute.
-    const isServerless = process.env.VERCEL === '1' || process.env.NEXT_RUNTIME === 'edge';
-    if (!isServerless && process.env.AUTO_SPAWN_LOCAL_WORKER !== 'false') {
-      executeInspectionRun(testRun._id, options).catch((workerErr) => {
-        console.error(`[Local Worker Error for ${testRun._id}]:`, workerErr);
-      });
+    // Directly execute and await the complete browser assessment pipeline inside this Vercel Function
+    try {
+      await executeInspectionRun(testRun._id, options);
+    } catch (runErr) {
+      console.error(`[Direct Execution Error for ${testRun._id}]:`, runErr);
     }
 
-    return NextResponse.json({ success: true, testRun }, { status: 201 });
+    // Retrieve final results
+    const [finishedRun, finishedAssessment, scenarioResults, evidenceList, observations] = await Promise.all([
+      TestRun.findById(testRun._id).populate('targetId').populate('assessmentId').lean(),
+      Assessment.findById(assessment._id).lean(),
+      ScenarioResult.find({ testRunId: testRun._id }).lean(),
+      Evidence.find({ testRunId: testRun._id }).lean(),
+      StructuredObservation.find({ testRunId: testRun._id }).lean(),
+    ]);
+
+    const isSuccess = finishedRun?.status === 'completed';
+
+    return NextResponse.json(
+      {
+        success: isSuccess,
+        testRun: finishedRun || testRun,
+        assessment: finishedAssessment || assessment,
+        scenarioResults: scenarioResults || [],
+        evidenceList: evidenceList || [],
+        observations: observations || [],
+        error: isSuccess ? null : (finishedRun?.errorMessage || 'Inspection encountered errors'),
+      },
+      { status: isSuccess ? 200 : (finishedRun?.status === 'failed' ? 400 : 200) }
+    );
   } catch (err) {
-    console.error('Error initiating test run:', err);
+    console.error('Error in assessment execution run:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

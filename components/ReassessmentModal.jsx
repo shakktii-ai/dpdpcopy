@@ -305,7 +305,7 @@ export default function ReassessmentModal({
               <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>
                 {loading
-                  ? 'Initializing Assessment...'
+                  ? 'Executing Direct Assessment (~30-50s)...'
                   : isRetry
                   ? 'Retry Assessment Now'
                   : `Start Reassessment (Run #${nextSequence})`}

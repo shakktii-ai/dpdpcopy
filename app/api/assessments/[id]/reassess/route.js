@@ -5,11 +5,12 @@ import TestRun from '@/models/TestRun';
 import ApprovedTarget from '@/models/ApprovedTarget';
 import AuditLog from '@/models/AuditLog';
 import { requireAuth, ROLES } from '@/lib/auth';
-import { executeInspectionRun } from '@/lib/browser-worker';
+import { executeInspectionRun } from '@/lib/assessment-runner';
 import { emitAssessmentEvent } from '@/lib/event-bus';
 import { validateTargetUrl } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 /**
  * POST /api/assessments/[id]/reassess
@@ -227,26 +228,35 @@ export async function POST(request, { params }) {
       url: prevAssessment.targetUrl,
     });
 
-    // In serverless environments (e.g. Vercel), do NOT run unawaited background browser processes.
-    // Serverless containers freeze immediately on response return and lack Chromium binaries.
-    // Instead, leave the reassessment in 'queued' state for the persistent worker daemon to claim.
-    const isServerless = process.env.VERCEL === '1' || process.env.NEXT_RUNTIME === 'edge';
-    if (!isServerless && process.env.AUTO_SPAWN_LOCAL_WORKER !== 'false') {
-      executeInspectionRun(testRun._id, workerOptions).catch((workerErr) => {
-        console.error(`[Local Reassessment Worker Error for ${testRun._id}]:`, workerErr);
-      });
+    // Directly execute and await the complete browser reassessment pipeline inside this Vercel Function
+    try {
+      await executeInspectionRun(testRun._id, authOptions);
+    } catch (runErr) {
+      console.error(`[Direct Reassessment Error for ${testRun._id}]:`, runErr);
     }
+
+    const [finishedRun, finishedAssessment] = await Promise.all([
+      TestRun.findById(testRun._id).lean(),
+      Assessment.findById(newAssessment._id).lean(),
+    ]);
+
+    const isSuccess = finishedRun?.status === 'completed';
 
     return NextResponse.json(
       {
-        success: true,
-        message: `Reassessment Run #${sequenceNumber} initiated successfully.`,
+        success: isSuccess,
+        message: isSuccess
+          ? `Reassessment Run #${sequenceNumber} completed successfully.`
+          : `Reassessment Run #${sequenceNumber} finished with status: ${finishedRun?.status || 'failed'}.`,
         assessmentId: newAssessment._id,
         testRunId: testRun._id,
         sequenceNumber,
         previousAssessmentId: prevAssessment._id,
+        testRun: finishedRun,
+        assessment: finishedAssessment,
+        error: isSuccess ? null : (finishedRun?.errorMessage || 'Reassessment encountered errors'),
       },
-      { status: 201 }
+      { status: isSuccess ? 200 : (finishedRun?.status === 'failed' ? 400 : 200) }
     );
   } catch (err) {
     console.error('Error initiating reassessment:', err);

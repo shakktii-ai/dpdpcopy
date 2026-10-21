@@ -131,12 +131,12 @@ function LiveTestingContent() {
       if (data.success) {
         setActiveRunId(data.testRun._id);
         setRunData(data.testRun);
-        setScenarioResults([]);
-        setEvidenceList([]);
-        setObservations([]);
+        setScenarioResults(data.scenarioResults || []);
+        setEvidenceList(data.evidenceList || []);
+        setObservations(data.observations || []);
         setActiveTab('terminal');
       } else {
-        alert(`Failed to start run: ${data.error}`);
+        alert(`Inspection run failed: ${data.error || 'Unknown error occurred'}`);
       }
     } catch (err) {
       alert(`Error launching inspection: ${err.message}`);

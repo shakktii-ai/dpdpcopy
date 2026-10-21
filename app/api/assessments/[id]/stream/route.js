@@ -139,13 +139,22 @@ export async function GET(request, { params }) {
           report: report || null,
         });
 
-        // 2. Subscribe to real-time events from EventBus
-        const unsubscribe = subscribeToAssessment(assessmentId, (event) => {
+        // 2. Subscribe to real-time events from EventBus for both assessmentId and testRunId
+        const unsubAssessment = subscribeToAssessment(assessmentId, (event) => {
           sendMsg({
             type: 'event',
             event,
           });
         });
+
+        const unsubRun = runId && runId !== assessmentId
+          ? subscribeToAssessment(runId, (event) => {
+              sendMsg({
+                type: 'event',
+                event,
+              });
+            })
+          : () => {};
 
         // 3. Keep-alive heartbeat every 15s
         const pingInterval = setInterval(() => {
@@ -159,7 +168,8 @@ export async function GET(request, { params }) {
         // 4. Cleanup when client disconnects
         request.signal.addEventListener('abort', () => {
           clearInterval(pingInterval);
-          unsubscribe();
+          unsubAssessment();
+          unsubRun();
           try {
             controller.close();
           } catch (e) {}

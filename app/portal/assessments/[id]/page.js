@@ -68,63 +68,116 @@ export default function CustomerLiveTestingPage({ params }) {
 
   const eventSourceRef = useRef(null);
   const isMountedRef = useRef(true);
+  const pollIntervalRef = useRef(null);
 
-  // Fetch snapshot of assessment and test run from database
+  // Fetch complete snapshot of assessment, test run, evidence, and report from database
   const fetchSnapshot = useCallback(async () => {
     try {
       const res = await fetch(`/api/assessments/${assessmentId}/stream`, {
         headers: { Accept: 'application/json' },
       });
+
+      if (!isMountedRef.current) return null;
+
       if (res.status === 404) {
-        if (isMountedRef.current) {
-          setLoadError('Assessment record not found. It may have been removed or an invalid ID was requested.');
-          setLoading(false);
-        }
-        return;
+        setLoadError('Assessment record not found. It may have been removed or an invalid ID was requested.');
+        setLoading(false);
+        return { isError: true };
       }
       if (res.status === 403) {
-        if (isMountedRef.current) {
-          setLoadError('Access denied. You do not have permission to view this assessment.');
-          setLoading(false);
-        }
-        return;
+        setLoadError('Access denied. You do not have permission to view this assessment.');
+        setLoading(false);
+        return { isError: true };
       }
+
       const json = await res.json();
       if (json.success && isMountedRef.current) {
-        setAssessment(json.assessment || null);
-        setTestRun(json.testRun || null);
-        setEvents(json.events || []);
-        setEvidenceList(json.evidenceList || []);
-        setScenarios(json.scenarios || []);
-        if (json.report) {
-          setReport(json.report);
-        }
+        if (json.assessment) setAssessment(json.assessment);
+        if (json.testRun) setTestRun(json.testRun);
+        if (Array.isArray(json.events)) setEvents(json.events);
+        if (Array.isArray(json.evidenceList)) setEvidenceList(json.evidenceList);
+        if (Array.isArray(json.scenarios)) setScenarios(json.scenarios);
+        if (json.report) setReport(json.report);
+
         if (json.testRun?.latestScreenshot) {
           setLatestScreenshot(json.testRun.latestScreenshot);
           setLatestScreenshotUrl(json.testRun.latestScreenshotUrl || json.testRun.currentUrl || '');
           setLatestScreenshotTime(json.testRun.latestScreenshotTime || new Date());
+          setImgErrors((prev) => ({ ...prev, [json.testRun.latestScreenshot]: false }));
         }
+
         setLoadError(null);
         setLoading(false);
+
+        const currentStatus = json.testRun?.status || json.assessment?.status || 'queued';
+        const isDone = ['completed', 'failed', 'cancelled'].includes(currentStatus);
+        const hasReport = Boolean(json.report);
+
+        return { isDone, hasReport, status: currentStatus };
       } else if (!json.success && isMountedRef.current) {
-        setLoadError(json.error || 'Failed to load assessment data.');
-        setLoading(false);
+        // Only show loadError on initial loading state
+        if (loading) {
+          setLoadError(json.error || 'Failed to load assessment data.');
+          setLoading(false);
+        }
       }
     } catch (pollErr) {
-      console.error('Polling error:', pollErr);
-      if (isMountedRef.current) {
+      console.warn('[SyncSnapshot] Poll heartbeat notice:', pollErr.message);
+      if (loading && isMountedRef.current) {
         setLoadError('Unable to connect to the assessment service. Please check your network connection.');
         setLoading(false);
       }
     }
-  }, [assessmentId]);
+    return null;
+  }, [assessmentId, loading]);
 
-  // Initialize and connect live event stream
+  // Dual synchronization engine: SSE Stream for instant push + 1.5s MongoDB Polling Heartbeat
+  // Ensures 100% fluid real-time progress and instant completion transition with ZERO refresh or reload!
   useEffect(() => {
-    let isMounted = true;
     isMountedRef.current = true;
-    let fallbackInterval = null;
+    let terminalConfirmed = false;
+    let postCompletionChecks = 0;
 
+    // 1. Immediate initial snapshot fetch
+    fetchSnapshot().then((result) => {
+      if (result?.isDone && (result.hasReport || result.status !== 'completed')) {
+        terminalConfirmed = true;
+      }
+    });
+
+    // 2. Continuous 1.5s polling heartbeat while assessment is actively running
+    // Guarantees progress and screenshots advance even if SSE is delayed or buffered
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    pollIntervalRef.current = setInterval(async () => {
+      if (!isMountedRef.current) return;
+      if (terminalConfirmed) return;
+
+      const res = await fetchSnapshot();
+      if (res?.isDone) {
+        if (res.hasReport || res.status !== 'completed') {
+          terminalConfirmed = true;
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+        } else {
+          // Status is completed but report document is finalizing in MongoDB: poll up to 5 more times
+          postCompletionChecks++;
+          if (postCompletionChecks >= 5) {
+            terminalConfirmed = true;
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+          }
+        }
+      }
+    }, 1500);
+
+    // 3. Connect EventSource for instantaneous sub-second streaming
     const connectStream = () => {
       if (typeof window === 'undefined' || !window.EventSource) return;
 
@@ -133,29 +186,28 @@ export default function CustomerLiveTestingPage({ params }) {
         eventSourceRef.current = es;
 
         es.onopen = () => {
-          if (isMounted) setStreamConnected(true);
+          if (isMountedRef.current) setStreamConnected(true);
         };
 
         es.onmessage = (e) => {
-          if (!isMounted) return;
+          if (!isMountedRef.current) return;
           try {
             const data = JSON.parse(e.data);
 
             if (data.type === 'init') {
-              setAssessment(data.assessment || null);
-              setTestRun(data.testRun || null);
-              setEvents(data.events || []);
-              setEvidenceList(data.evidenceList || []);
-              setScenarios(data.scenarios || []);
-              if (data.report) {
-                setReport(data.report);
-              }
+              if (data.assessment) setAssessment(data.assessment);
+              if (data.testRun) setTestRun(data.testRun);
+              if (Array.isArray(data.events)) setEvents(data.events);
+              if (Array.isArray(data.evidenceList)) setEvidenceList(data.evidenceList);
+              if (Array.isArray(data.scenarios)) setScenarios(data.scenarios);
+              if (data.report) setReport(data.report);
+
               if (data.testRun?.latestScreenshot) {
                 setLatestScreenshot(data.testRun.latestScreenshot);
                 setLatestScreenshotUrl(data.testRun.latestScreenshotUrl || data.testRun.currentUrl || '');
                 setLatestScreenshotTime(data.testRun.latestScreenshotTime || new Date());
+                setImgErrors((prev) => ({ ...prev, [data.testRun.latestScreenshot]: false }));
               }
-              setLoadError(null);
               setLoading(false);
             } else if (data.type === 'event') {
               const ev = data.event;
@@ -166,7 +218,6 @@ export default function CustomerLiveTestingPage({ params }) {
                 setLatestScreenshot(ev.screenshotPath);
                 setLatestScreenshotUrl(ev.url || '');
                 setLatestScreenshotTime(ev.timestamp || new Date());
-                // Reset error state for incoming screenshot
                 setImgErrors((prev) => ({ ...prev, [ev.screenshotPath]: false }));
               }
 
@@ -185,17 +236,18 @@ export default function CustomerLiveTestingPage({ params }) {
 
               // Update test run snapshot
               setTestRun((prev) => {
-                if (!prev) return prev;
+                const nextStatus = ev.eventType === 'completed' ? 'completed'
+                  : ev.eventType === 'failed' ? 'failed'
+                  : ev.eventType === 'cancelled' ? 'cancelled'
+                  : ev.eventType === 'human_intervention' ? 'awaiting_user_input'
+                  : (prev?.status || 'inspecting_website');
+
                 return {
-                  ...prev,
-                  progress: ev.progress !== null && ev.progress !== undefined ? ev.progress : prev.progress,
-                  currentStep: ev.stepName || prev.currentStep,
-                  status: ev.eventType === 'completed' ? 'completed'
-                    : ev.eventType === 'failed' ? 'failed'
-                    : ev.eventType === 'cancelled' ? 'cancelled'
-                    : ev.eventType === 'human_intervention' ? 'awaiting_user_input'
-                    : prev.status,
-                  userAssistanceRequired: ev.eventType === 'human_intervention' ? true : prev.userAssistanceRequired,
+                  ...(prev || {}),
+                  progress: ev.progress !== null && ev.progress !== undefined ? ev.progress : (prev?.progress || 0),
+                  currentStep: ev.stepName || prev?.currentStep,
+                  status: nextStatus,
+                  userAssistanceRequired: ev.eventType === 'human_intervention' ? true : prev?.userAssistanceRequired,
                 };
               });
 
@@ -218,12 +270,11 @@ export default function CustomerLiveTestingPage({ params }) {
                 });
               }
 
-              // When completed or failed, synchronize with MongoDB snapshot
+              // When completed or failed, update assessment status and immediately sync finalized Report
               if (ev.eventType === 'completed' || ev.eventType === 'failed') {
-                setTimeout(fetchSnapshot, 600);
+                setAssessment((prev) => prev ? { ...prev, status: ev.eventType } : prev);
+                fetchSnapshot();
               }
-
-
             }
           } catch (parseErr) {
             console.error('Error parsing SSE event:', parseErr);
@@ -231,29 +282,24 @@ export default function CustomerLiveTestingPage({ params }) {
         };
 
         es.onerror = () => {
-          if (isMounted) setStreamConnected(false);
-          // If SSE stream fails, fallback to HTTP JSON polling
-          if (!fallbackInterval) {
-            fallbackInterval = setInterval(fetchSnapshot, 3000);
-          }
+          if (isMountedRef.current) setStreamConnected(false);
         };
       } catch (err) {
         console.error('Failed to initialize EventSource:', err);
-        fallbackInterval = setInterval(fetchSnapshot, 3000);
       }
     };
 
     connectStream();
-    fetchSnapshot();
 
     return () => {
-      isMounted = false;
       isMountedRef.current = false;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
-      }
-      if (fallbackInterval) {
-        clearInterval(fallbackInterval);
+        eventSourceRef.current = null;
       }
     };
   }, [assessmentId, fetchSnapshot]);

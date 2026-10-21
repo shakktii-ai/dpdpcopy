@@ -37,28 +37,12 @@ const TestRunSchema = new mongoose.Schema(
       default: 'queued',
       index: true,
     },
-    workerId: {
-      type: String,
-      default: null,
-    },
-    workerRole: {
-      type: String,
-      enum: ['local-primary', 'railway-backup', null],
-      default: null,
-      index: true,
-    },
-    claimedAt: {
-      type: Date,
-      default: null,
-    },
-    lastHeartbeat: {
-      type: Date,
-      default: null,
-    },
-    leaseExpiresAt: {
-      type: Date,
-      default: null,
-    },
+    // Legacy fields retained for backwards-compatible reads of historical TestRuns
+    workerId: { type: String, default: null },
+    workerRole: { type: String, default: null },
+    claimedAt: { type: Date, default: null },
+    lastHeartbeat: { type: Date, default: null },
+    leaseExpiresAt: { type: Date, default: null },
     runOptions: {
       type: mongoose.Schema.Types.Mixed,
       default: null,

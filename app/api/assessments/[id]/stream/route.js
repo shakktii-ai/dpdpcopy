@@ -5,7 +5,8 @@ import ApprovedTarget from '@/models/ApprovedTarget';
 import Organization from '@/models/Organization';
 import Evidence from '@/models/Evidence';
 import ScenarioResult from '@/models/ScenarioResult';
-import { requireAuth } from '@/lib/auth';
+import Report from '@/models/Report';
+import { requireAuth, checkOrganizationAccess } from '@/lib/auth';
 import { getAssessmentEvents, subscribeToAssessment, emitAssessmentEvent } from '@/lib/event-bus';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ export async function GET(request, { params }) {
     await connectDB();
     const { id } = await params;
 
-    // Locate assessment by ID, or fallback to finding by testRun ID
+    // Locate assessment by ID, or fallback to finding by testRun ID, or finding by targetId
     let assessment = await Assessment.findById(id).lean();
     let testRun = null;
 
@@ -31,6 +32,18 @@ export async function GET(request, { params }) {
       testRun = await TestRun.findById(id).populate('targetId').lean();
       if (testRun && testRun.assessmentId) {
         assessment = await Assessment.findById(testRun.assessmentId).lean();
+      } else {
+        // Fallback: check if id is an ApprovedTarget ID
+        const targetRun = await TestRun.findOne({ targetId: id })
+          .populate('targetId', 'approvedDomain targetUrl isDemoSite')
+          .sort({ createdAt: -1 })
+          .lean();
+        if (targetRun) {
+          testRun = targetRun;
+          if (testRun.assessmentId) {
+            assessment = await Assessment.findById(testRun.assessmentId).lean();
+          }
+        }
       }
     } else {
       testRun = await TestRun.findOne({ assessmentId: id })
@@ -49,7 +62,7 @@ export async function GET(request, { params }) {
     const orgId = assessment ? assessment.organization : testRun?.targetId?.organization;
 
     // Strict Tenant Isolation: Ensure customer owns this assessment
-    if (session.role !== 'admin' && String(orgId) !== String(session.organizationId)) {
+    if (!checkOrganizationAccess(session, orgId)) {
       return new Response(JSON.stringify({ success: false, error: 'Unauthorized access to assessment stream.' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' },
@@ -67,7 +80,7 @@ export async function GET(request, { params }) {
       ? { $or: [{ testRunId: runId }, { assessmentId }] }
       : { assessmentId };
 
-    const [events, evidenceList, scenarios] = await Promise.all([
+    const [events, evidenceList, scenarios, report] = await Promise.all([
       getAssessmentEvents(assessmentId),
       Evidence.find(evidenceFilter)
         .select('scenarioId evidenceType pageUrl pageTitle screenshotPath metadata timestamp')
@@ -77,6 +90,7 @@ export async function GET(request, { params }) {
         .select('scenarioId title category status summary dpdpReference observedFindings')
         .sort({ createdAt: 1 })
         .lean(),
+      Report.findOne({ assessment: assessmentId }).lean(),
     ]);
 
     // Check if client expects standard JSON polling instead of SSE stream
@@ -92,6 +106,7 @@ export async function GET(request, { params }) {
           events,
           evidenceList,
           scenarios,
+          report: report || null,
         }),
         {
           status: 200,
@@ -121,6 +136,7 @@ export async function GET(request, { params }) {
           events,
           evidenceList,
           scenarios,
+          report: report || null,
         });
 
         // 2. Subscribe to real-time events from EventBus
@@ -201,8 +217,8 @@ export async function POST(request, { params }) {
       });
     }
 
-    const orgId = assessment ? assessment.organization : null;
-    if (session.role !== 'admin' && String(orgId) !== String(session.organizationId)) {
+    const orgId = assessment ? assessment.organization : testRun?.targetId?.organization;
+    if (!checkOrganizationAccess(session, orgId)) {
       return new Response(JSON.stringify({ success: false, error: 'Unauthorized.' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' },

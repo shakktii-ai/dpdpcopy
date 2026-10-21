@@ -7,7 +7,7 @@ import ScenarioResult from '../../../models/ScenarioResult';
 import Evidence from '../../../models/Evidence';
 import StructuredObservation from '../../../models/StructuredObservation';
 import AuditLog from '../../../models/AuditLog';
-import { requireAuth } from '../../../lib/auth';
+import { requireAuth, checkOrganizationAccess } from '../../../lib/auth';
 import { executeInspectionRun } from '../../../lib/assessment-runner';
 import { emitAssessmentEvent } from '../../../lib/event-bus';
 import { redactSensitiveData } from '../../../lib/evidence-redactor';
@@ -84,8 +84,8 @@ export async function POST(request) {
       );
     }
 
-    // Verify target belongs to user's organization (unless admin)
-    if (session.role !== 'admin' && String(target.organization) !== String(session.organizationId)) {
+    // Verify target belongs to user's organization (unless admin or reviewer)
+    if (!checkOrganizationAccess(session, target.organization)) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized. Target belongs to a different organization.' },
         { status: 403 }
@@ -120,6 +120,9 @@ export async function POST(request) {
           success: false,
           error: 'An automated assessment is already actively running for this target. Please wait for it to complete.',
           activeRunId: duplicateRun._id,
+          activeAssessmentId: duplicateRun.assessmentId,
+          assessmentId: duplicateRun.assessmentId,
+          testRunId: duplicateRun._id,
         },
         { status: 409 }
       );
@@ -215,7 +218,11 @@ export async function POST(request) {
 
     return NextResponse.json(
       {
-        success: isSuccess,
+        success: true,
+        assessmentId: String(assessment._id),
+        testRunId: String(testRun._id),
+        status: finishedRun?.status || testRun.status,
+        isCompleted: isSuccess,
         testRun: finishedRun || testRun,
         assessment: finishedAssessment || assessment,
         scenarioResults: scenarioResults || [],
@@ -223,7 +230,7 @@ export async function POST(request) {
         observations: observations || [],
         error: isSuccess ? null : (finishedRun?.errorMessage || 'Inspection encountered errors'),
       },
-      { status: isSuccess ? 200 : (finishedRun?.status === 'failed' ? 400 : 200) }
+      { status: 200 }
     );
   } catch (err) {
     console.error('Error in assessment execution run:', err);

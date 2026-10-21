@@ -52,7 +52,9 @@ export default function CustomerLiveTestingPage({ params }) {
   const [events, setEvents] = useState([]);
   const [evidenceList, setEvidenceList] = useState([]);
   const [scenarios, setScenarios] = useState([]);
+  const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [streamConnected, setStreamConnected] = useState(false);
   const [latestScreenshot, setLatestScreenshot] = useState(null);
   const [latestScreenshotUrl, setLatestScreenshotUrl] = useState('');
@@ -73,6 +75,20 @@ export default function CustomerLiveTestingPage({ params }) {
       const res = await fetch(`/api/assessments/${assessmentId}/stream`, {
         headers: { Accept: 'application/json' },
       });
+      if (res.status === 404) {
+        if (isMountedRef.current) {
+          setLoadError('Assessment record not found. It may have been removed or an invalid ID was requested.');
+          setLoading(false);
+        }
+        return;
+      }
+      if (res.status === 403) {
+        if (isMountedRef.current) {
+          setLoadError('Access denied. You do not have permission to view this assessment.');
+          setLoading(false);
+        }
+        return;
+      }
       const json = await res.json();
       if (json.success && isMountedRef.current) {
         setAssessment(json.assessment || null);
@@ -80,15 +96,26 @@ export default function CustomerLiveTestingPage({ params }) {
         setEvents(json.events || []);
         setEvidenceList(json.evidenceList || []);
         setScenarios(json.scenarios || []);
+        if (json.report) {
+          setReport(json.report);
+        }
         if (json.testRun?.latestScreenshot) {
           setLatestScreenshot(json.testRun.latestScreenshot);
           setLatestScreenshotUrl(json.testRun.latestScreenshotUrl || json.testRun.currentUrl || '');
           setLatestScreenshotTime(json.testRun.latestScreenshotTime || new Date());
         }
+        setLoadError(null);
+        setLoading(false);
+      } else if (!json.success && isMountedRef.current) {
+        setLoadError(json.error || 'Failed to load assessment data.');
         setLoading(false);
       }
     } catch (pollErr) {
       console.error('Polling error:', pollErr);
+      if (isMountedRef.current) {
+        setLoadError('Unable to connect to the assessment service. Please check your network connection.');
+        setLoading(false);
+      }
     }
   }, [assessmentId]);
 
@@ -120,11 +147,15 @@ export default function CustomerLiveTestingPage({ params }) {
               setEvents(data.events || []);
               setEvidenceList(data.evidenceList || []);
               setScenarios(data.scenarios || []);
+              if (data.report) {
+                setReport(data.report);
+              }
               if (data.testRun?.latestScreenshot) {
                 setLatestScreenshot(data.testRun.latestScreenshot);
                 setLatestScreenshotUrl(data.testRun.latestScreenshotUrl || data.testRun.currentUrl || '');
                 setLatestScreenshotTime(data.testRun.latestScreenshotTime || new Date());
               }
+              setLoadError(null);
               setLoading(false);
             } else if (data.type === 'event') {
               const ev = data.event;
@@ -270,6 +301,67 @@ export default function CustomerLiveTestingPage({ params }) {
 
   const targetDomain = testRun?.targetId?.approvedDomain || assessment?.targetUrl?.replace(/^https?:\/\//, '') || 'Website In-Scope';
   const targetUrl = testRun?.targetId?.targetUrl || assessment?.targetUrl || 'https://' + targetDomain;
+
+  // Recoverable error state when assessment cannot be found or authorized
+  if (loadError) {
+    return (
+      <div className="max-w-2xl mx-auto py-12 px-4 space-y-6">
+        <div className="p-8 rounded-2xl bg-white border border-rose-200 shadow-sm space-y-4 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-7 h-7 text-rose-600" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-bold text-slate-900">Assessment Record Unavailable</h2>
+            <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+              {loadError}
+            </p>
+          </div>
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                fetchSnapshot();
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[#2d523e] text-white hover:bg-[#234232] shadow-2xs transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Retry Loading</span>
+            </button>
+            <Link
+              href="/portal"
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              Return to Workspace
+            </Link>
+            <Link
+              href="/portal/onboarding"
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              Configure New Assessment
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Initial loading state while fetching snapshot from MongoDB
+  if (loading && !assessment && !testRun) {
+    return (
+      <div className="max-w-4xl mx-auto py-16 px-4 text-center space-y-4">
+        <div className="w-14 h-14 rounded-2xl bg-[#eaf2ed] text-[#2d523e] border border-[#d0e2d5] flex items-center justify-center mx-auto shadow-2xs animate-pulse">
+          <RefreshCw className="w-7 h-7 text-[#2d523e] animate-spin" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-lg font-bold text-slate-900">Loading Assessment Details</h2>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Retrieving persisted assessment findings, evidence screenshots, and compliance state from MongoDB...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-2">
@@ -843,7 +935,12 @@ export default function CustomerLiveTestingPage({ params }) {
               <span>Website Assessment Completed Successfully</span>
             </h3>
             <p className="text-xs text-[#2d523e] leading-relaxed">
-              All 6 statutory assessment checks evaluated with empirical evidence. Your comprehensive DPDP compliance report is ready.
+              All statutory assessment checks evaluated with empirical evidence. Your comprehensive DPDP compliance report is ready.
+              {report?.overallScore !== undefined && (
+                <span className="block mt-1 font-semibold text-[#1e382a]">
+                  Overall Score: {report.overallScore}% &bull; Grade: {report.complianceGrade} &bull; Findings: {report.findingsCount?.total || scenarios.filter(s => s.status === 'failed').length}
+                </span>
+              )}
             </p>
           </div>
 

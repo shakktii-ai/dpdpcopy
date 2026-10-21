@@ -21,7 +21,8 @@ import {
   Eye,
   EyeOff,
   KeyRound,
-  Info
+  Info,
+  RefreshCw
 } from 'lucide-react';
 
 const STEPS = [
@@ -36,9 +37,40 @@ export default function CustomerOnboardingPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [submitElapsed, setSubmitElapsed] = useState(0);
+  const [submitStageText, setSubmitStageText] = useState('Initializing browser sandbox & direct assessment...');
+  const [activeAssessmentRun, setActiveAssessmentRun] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [existingOrganization, setExistingOrganization] = useState(null);
   const [loadingOrg, setLoadingOrg] = useState(true);
+
+  // Live timer and stage progress updater during synchronous execution
+  useEffect(() => {
+    let timer = null;
+    if (submitting) {
+      timer = setInterval(() => {
+        setSubmitElapsed((sec) => {
+          const next = sec + 1;
+          if (next < 8) {
+            setSubmitStageText('Initializing Playwright browser & security perimeter...');
+          } else if (next < 20) {
+            setSubmitStageText('Navigating pages, inspecting cookie banner & consent notices...');
+          } else if (next < 35) {
+            setSubmitStageText('Evaluating statutory scenarios & uploading evidence screenshots...');
+          } else {
+            setSubmitStageText('Synthesizing AI compliance findings & finalizing report...');
+          }
+          return next;
+        });
+      }, 1000);
+    } else {
+      setSubmitElapsed(0);
+      setSubmitStageText('Initializing browser sandbox & direct assessment...');
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [submitting]);
 
   // Step 1: Organization State
   const [orgData, setOrgData] = useState({
@@ -154,6 +186,28 @@ export default function CustomerOnboardingPage() {
             }
           }
         }
+
+        // Check for active or recent runs to make assessment status survive page refresh
+        try {
+          const runsRes = await fetch('/api/runs');
+          const runsJson = await runsRes.json();
+          if (runsJson.success && Array.isArray(runsJson.runs) && runsJson.runs.length > 0) {
+            const active = runsJson.runs.find((r) =>
+              ['running', 'inspecting_website', 'capturing_evidence', 'analyzing_observations'].includes(r.status)
+            );
+            if (active) {
+              setActiveAssessmentRun(active);
+              // If user was actively waiting for submission when page reloaded, auto-navigate
+              if (typeof window !== 'undefined' && sessionStorage.getItem('dpdp_active_submission')) {
+                const targetId = active.assessmentId?._id || active.assessmentId || active._id;
+                sessionStorage.removeItem('dpdp_active_submission');
+                router.push(`/portal/assessments/${targetId}`);
+              }
+            }
+          }
+        } catch (runDetectErr) {
+          console.warn('Could not check for active runs:', runDetectErr);
+        }
       } catch (err) {
         console.warn('Could not auto-fetch organization:', err);
       } finally {
@@ -162,7 +216,7 @@ export default function CustomerOnboardingPage() {
     }
 
     loadOrgInfo();
-  }, []);
+  }, [router]);
 
   const validateStep = (step) => {
     const errs = {};
@@ -299,6 +353,18 @@ export default function CustomerOnboardingPage() {
       setSubmitting(true);
       setErrorMessage('');
 
+      // Mark in sessionStorage so a page reload knows a submission was initiated
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(
+          'dpdp_active_submission',
+          JSON.stringify({
+            websiteUrl: webData.websiteUrl,
+            websiteName: webData.websiteName,
+            startedAt: Date.now(),
+          })
+        );
+      }
+
       // Build features array for existing backend model
       const websiteFeatures = [
         { key: 'cookies_analytics', label: 'Cookies & Analytics', enabled: webData.features.cookies_analytics },
@@ -373,9 +439,8 @@ export default function CustomerOnboardingPage() {
       }
 
       const targetId = onboardJson.data.approvedTarget._id;
-      const organizationId = onboardJson.data.organization._id;
 
-      // 2. Queue Assessment Run via /api/runs
+      // 2. Execute Direct Assessment Run via /api/runs (synchronous direct execution inside Vercel)
       const runRes = await fetch('/api/runs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -396,24 +461,109 @@ export default function CustomerOnboardingPage() {
         }),
       });
 
-      const runJson = await runRes.json();
-      if (!runJson.success) {
-        throw new Error(runJson.error || 'Failed to queue assessment test run');
+      let runJson = null;
+      try {
+        runJson = await runRes.json();
+      } catch (jsonErr) {
+        console.error('Failed to parse run response JSON:', jsonErr);
       }
 
-      const assessmentId = runJson.testRun?.assessmentId?._id || runJson.testRun?.assessmentId || targetId;
+      // Handle 409 Conflict gracefully (assessment is already actively running for this target)
+      if (runRes.status === 409 && runJson) {
+        const activeId = runJson.assessmentId || runJson.activeAssessmentId;
+        if (activeId) {
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('dpdp_active_submission');
+          }
+          router.push(`/portal/assessments/${activeId}`);
+          setTimeout(() => {
+            if (typeof window !== 'undefined' && !window.location.pathname.includes(String(activeId))) {
+              window.location.assign(`/portal/assessments/${activeId}`);
+            }
+          }, 1200);
+          return;
+        }
+      }
 
-      // 3. Redirect customer to real-time progress page
-      router.push(`/portal/assessments/${assessmentId}`);
+      if (!runRes.ok && (!runJson || !runJson.assessmentId)) {
+        throw new Error(runJson?.error || `Failed to run assessment (HTTP ${runRes.status})`);
+      }
+
+      // Read returned assessment and TestRun identifiers
+      const targetAssessmentId =
+        runJson?.assessmentId ||
+        runJson?.assessment?._id ||
+        runJson?.testRun?.assessmentId?._id ||
+        runJson?.testRun?.assessmentId ||
+        runJson?.testRun?._id;
+
+      if (!targetAssessmentId) {
+        throw new Error('Assessment created but valid ID was not returned. Please check customer workspace.');
+      }
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('dpdp_active_submission');
+      }
+
+      // 3. Automatically navigate to Assessment Detail page
+      router.push(`/portal/assessments/${targetAssessmentId}`);
+
+      // Fallback navigation guard in case Next.js client router is slow or interrupted
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && !window.location.pathname.includes(String(targetAssessmentId))) {
+          window.location.assign(`/portal/assessments/${targetAssessmentId}`);
+        }
+      }, 1200);
     } catch (err) {
       console.error('Onboarding start error:', err);
       setErrorMessage(err.message || 'Something went wrong while starting the assessment. Please try again.');
       setSubmitting(false);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('dpdp_active_submission');
+      }
     }
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 py-4">
+      {/* Active Assessment Detected Banner (Resilience across refresh) */}
+      {activeAssessmentRun && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-[#2d523e] text-white flex items-center justify-center flex-shrink-0 animate-pulse">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-xs text-[#2d523e]">Active Assessment In Progress</span>
+                <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-[#2d523e] font-semibold">
+                  {activeAssessmentRun.status?.replace(/_/g, ' ')}
+                </span>
+              </div>
+              <p className="text-xs text-stone-600 mt-0.5">
+                Target: <strong className="text-stone-800">{activeAssessmentRun.targetId?.approvedDomain || activeAssessmentRun.targetId?.targetUrl || 'In-Scope Target'}</strong> &bull; {activeAssessmentRun.currentStep || 'Inspecting'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/portal/assessments/${activeAssessmentRun.assessmentId?._id || activeAssessmentRun.assessmentId || activeAssessmentRun._id}`}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#2d523e] hover:bg-[#234232] text-white shadow-2xs transition-all"
+            >
+              <span>View Assessment Details</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+            <button
+              onClick={() => setActiveAssessmentRun(null)}
+              className="p-1.5 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-stone-100 text-xs"
+              title="Dismiss banner"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Wizard Header */}
       <div className="space-y-2 text-center">
         <span className="text-xs font-semibold text-[#2d523e] uppercase tracking-wider">
@@ -1299,13 +1449,27 @@ export default function CustomerOnboardingPage() {
                 </p>
               </div>
               {submitting && (
-                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2 animate-pulse">
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
-                    <span className="font-semibold text-xs">Direct Assessment in Progress...</span>
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-[#2d523e] border-t-transparent rounded-full animate-spin" />
+                      <span className="font-bold text-xs text-[#2d523e]">Direct Execution in Progress</span>
+                    </div>
+                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-[#2d523e]">
+                      {submitElapsed}s elapsed
+                    </span>
                   </div>
-                  <p className="text-[11px] text-emerald-800 leading-relaxed">
-                    Launching Playwright browser inside Vercel, inspecting website consent and privacy notices, capturing evidence, and synthesizing DPDP compliance findings with Gemini AI. This direct pipeline takes approximately 30–50 seconds. Please keep this tab open.
+                  <div className="w-full bg-emerald-200/60 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-[#2d523e] h-full transition-all duration-1000 rounded-full"
+                      style={{ width: `${Math.min(95, 10 + submitElapsed * 2.5)}%` }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-emerald-800 leading-relaxed font-medium">
+                    {submitStageText}
+                  </p>
+                  <p className="text-[10px] text-emerald-700/80">
+                    Direct assessment runs Playwright Chromium, uploads evidence to Cloudinary, and queries Gemini AI. The page will automatically navigate to your assessment details once completed.
                   </p>
                 </div>
               )}
@@ -1354,7 +1518,7 @@ export default function CustomerOnboardingPage() {
               {submitting ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Executing Direct Assessment...</span>
+                  <span>Executing Direct Assessment ({submitElapsed}s)...</span>
                 </>
               ) : (
                 <>

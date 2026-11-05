@@ -74,3 +74,4 @@ Thumbs.db
 !/scripts/install-browser.mjs
 !/scripts/worker-check.mjs
 !/scripts/test-local-first-failover.mjs
+!/scripts/test-dpdp-legal-and-content-suggestions.mjs

@@ -8,6 +8,7 @@ import { requireAuth, ROLES } from '../../../lib/auth.js';
 import { generatePdfReport, generateExcelReport } from '../../../lib/report-generator.js';
 import { evaluateAssessmentFindings } from '../../../lib/assessment-engine.js';
 import { getAssessmentSummary, getAssessmentSummaries } from '../../../lib/assessment-summary.js';
+import { groupSuggestionsByPage, generateContentSuggestion } from '../../../lib/content-suggestion-engine.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -187,6 +188,30 @@ export async function GET(request) {
 
       const summary = await getAssessmentSummary(assessment);
 
+      // Ensure findings have contentSuggestion; generate if absent
+      for (const f of findings) {
+        if (!f.contentSuggestion && (f.status === 'fail' || f.status === 'needs_review' || f.legalApplicabilityStatus === 'not_yet_in_force')) {
+          try {
+            const suggestion = await generateContentSuggestion({
+              requirementId: f.requirementId,
+              organizationName: assessment.organization?.name || 'Authorized Data Fiduciary',
+              existingContentSnippet: f.evidence?.snippet || (f.observedFacts || []).join('; '),
+              pageUrl: f.evidence?.pageUrl || assessment.targetUrl || '',
+              assessmentDate: assessment.createdAt,
+            });
+            f.contentSuggestion = suggestion;
+            await Finding.findByIdAndUpdate(f._id, { $set: { contentSuggestion: suggestion } });
+          } catch (e) {
+            console.warn(`[Reports API] Suggestion generation fallback for ${f.requirementId}:`, e.message);
+          }
+        }
+      }
+
+      const pageContentUpdates = groupSuggestionsByPage(findings);
+      const upcomingComplianceGaps = findings.filter(
+        (f) => f.legalApplicabilityStatus === 'not_yet_in_force' || (f.effectiveDate && new Date(f.effectiveDate) > new Date())
+      );
+
       return NextResponse.json({
         success: true,
         report: {
@@ -197,6 +222,8 @@ export async function GET(request) {
           findings,
           scenarios,
           scenarioCounts,
+          pageContentUpdates,
+          upcomingComplianceGaps,
           isFinal: assessment.status === 'completed',
         },
       });

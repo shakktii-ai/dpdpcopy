@@ -21,7 +21,16 @@ import {
   AlertCircle,
   ArrowLeft,
   RotateCcw,
-  X
+  X,
+  Copy,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Code,
+  FileCode,
+  CheckSquare,
+  Clock
 } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import ReassessmentModal from '@/components/ReassessmentModal';
@@ -38,6 +47,49 @@ export default function CustomerReportPage({ params }) {
   const [previewScreenshot, setPreviewScreenshot] = useState(null);
   const [reassessModalOpen, setReassessModalOpen] = useState(false);
   const [showDetailedFindings, setShowDetailedFindings] = useState(false);
+  const [expandedSuggestions, setExpandedSuggestions] = useState({});
+  const [copiedId, setCopiedId] = useState(null);
+  const [copiedPage, setCopiedPage] = useState(null);
+
+  const toggleExpand = (id) => {
+    setExpandedSuggestions((prev) => ({
+      ...prev,
+      [id]: prev[id] === undefined ? false : !prev[id],
+    }));
+  };
+
+  const handleCopy = (text, id) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2500);
+  };
+
+  const handleCopyPage = (suggestions, pageName) => {
+    if (!suggestions || suggestions.length === 0) return;
+    const formatted = suggestions
+      .map((s, idx) => {
+        const cs = s.contentSuggestion || s;
+        return `=======================================================
+RECOMMENDATION ${idx + 1}: ${cs.findingTitle || s.title}
+Target Page: ${cs.pageName || pageName} (${cs.pageUrl || ''})
+Action: ${cs.recommendedAction || 'Add'} | Priority: ${cs.priority || s.severity || 'Medium'}
+Placement: ${cs.placementInstructions?.sectionName || ''} (${cs.placementInstructions?.targetPosition || ''})
+Statutory Reference: ${cs.legalMapping?.sectionOrRule || s.ruleId} - ${cs.legalMapping?.sourceDocument || 'DPDP Act 2023'}
+
+--- READY-TO-USE SUGGESTED CONTENT (COPY & PUBLISH) ---
+${cs.readyToUseContent || ''}
+
+--- CUSTOMIZATION CHECKLIST BEFORE PUBLISHING ---
+${(cs.customizationRequirements || []).map((c) => `[ ] ${c}`).join('\n')}
+`;
+      })
+      .join('\n\n');
+
+    navigator.clipboard.writeText(formatted);
+    setCopiedPage(pageName);
+    setTimeout(() => setCopiedPage(null), 2500);
+  };
 
   useEffect(() => {
     fetch(`/api/reports?assessmentId=${assessmentId}`)
@@ -114,6 +166,36 @@ export default function CustomerReportPage({ params }) {
     needs_review: scenarios.filter((s) => s.status === 'needs_review').length,
     excluded: scenarios.filter((s) => ['skipped', 'not_applicable', 'not_tested'].includes(s.status)).length,
   };
+
+  const groupedUpdates = (report.pageContentUpdates && report.pageContentUpdates.length > 0)
+    ? report.pageContentUpdates
+    : (() => {
+        const map = new Map();
+        for (const f of (findings || [])) {
+          if (!f.contentSuggestion?.readyToUseContent) continue;
+          const cs = f.contentSuggestion;
+          const key = cs.pageName || 'Privacy Policy Page';
+          if (!map.has(key)) {
+            map.set(key, { pageName: key, pageUrl: cs.pageUrl || '', suggestions: [] });
+          }
+          map.get(key).suggestions.push({
+            findingId: f._id || f.requirementId,
+            requirementId: f.requirementId,
+            ruleId: f.ruleId,
+            title: f.title,
+            status: f.status,
+            severity: f.severity,
+            ...cs,
+          });
+        }
+        return Array.from(map.values());
+      })();
+
+  const upcomingGaps = (report.upcomingComplianceGaps && report.upcomingComplianceGaps.length > 0)
+    ? report.upcomingComplianceGaps
+    : (findings || []).filter(
+        (f) => f.legalApplicabilityStatus === 'not_yet_in_force' || (f.effectiveDate && new Date(f.effectiveDate) > new Date())
+      );
 
   const filteredScenarios = scenarios.filter((s) => {
     if (activeCategory === 'all') return true;
@@ -533,6 +615,328 @@ export default function CustomerReportPage({ params }) {
           </div>
         )}
       </div>
+
+      {/* ============================================================== */}
+      {/* DEDICATED SECTION: RECOMMENDED CONTENT UPDATES (PAGE-BY-PAGE) */}
+      {/* ============================================================== */}
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 pb-3">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-stone-900 flex items-center gap-2">
+              <FileCode className="w-5 h-5 text-[#2d523e]" />
+              <span>Recommended Content Updates & Ready-to-Use Website Content</span>
+            </h2>
+            <p className="text-xs text-stone-500 mt-0.5">
+              Complete, legally mapped replacement or additional website content generated directly from the official DPDP Act 2023 and DPDP Rules 2025.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-semibold px-2.5 py-1 rounded-md bg-[#eaf2ed] text-[#2d523e] border border-[#d0e2d5]">
+              {groupedUpdates.reduce((acc, p) => acc + (p.suggestions?.length || 0), 0)} Ready-to-Use Updates
+            </span>
+          </div>
+        </div>
+
+        {groupedUpdates.length > 0 ? (
+          <div className="space-y-6">
+            {groupedUpdates.map((pageGroup, pIdx) => {
+              const pageSuggestions = pageGroup.suggestions || [];
+              const isPageCopied = copiedPage === pageGroup.pageName;
+
+              return (
+                <div
+                  key={pIdx}
+                  className="rounded-3xl bg-white border border-stone-200/90 shadow-2xs overflow-hidden"
+                >
+                  {/* Page Group Header Bar */}
+                  <div className="p-5 sm:p-6 bg-stone-50 border-b border-stone-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded bg-white text-stone-700 border border-stone-200">
+                          Target Page #{pIdx + 1}
+                        </span>
+                        <span className="text-xs font-mono text-stone-500">
+                          {pageGroup.pageUrl}
+                        </span>
+                      </div>
+                      <h3 className="text-base font-bold text-stone-900 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-[#2d523e]" />
+                        <span>{pageGroup.pageName}</span>
+                      </h3>
+                    </div>
+
+                    <button
+                      onClick={() => handleCopyPage(pageSuggestions, pageGroup.pageName)}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-all ${
+                        isPageCopied
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-white hover:bg-stone-100 border border-stone-200 text-stone-800'
+                      }`}
+                    >
+                      {isPageCopied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Copied All Suggestions for Page!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-stone-500" />
+                          <span>Copy All Suggestions for this Page</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Suggestions List for this Page */}
+                  <div className="p-5 sm:p-6 space-y-5">
+                    {pageSuggestions.map((s, sIdx) => {
+                      const suggId = s.findingId || s.requirementId || `${pIdx}_${sIdx}`;
+                      const isExpanded = expandedSuggestions[suggId] !== false; // Default expanded
+                      const isCopied = copiedId === suggId;
+
+                      const actionBadgeColors = {
+                        Add: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                        Update: 'bg-blue-50 text-blue-800 border-blue-200',
+                        Replace: 'bg-amber-50 text-amber-800 border-amber-200',
+                        Remove: 'bg-rose-50 text-rose-800 border-rose-200',
+                      }[s.recommendedAction] || 'bg-stone-100 text-stone-700 border-stone-200';
+
+                      const priorityBadgeColors = {
+                        Critical: 'bg-rose-50 text-rose-700 border-rose-200',
+                        High: 'bg-amber-50 text-amber-700 border-amber-200',
+                        Medium: 'bg-sky-50 text-sky-700 border-sky-200',
+                        Low: 'bg-stone-50 text-stone-600 border-stone-200',
+                      }[s.priority] || 'bg-stone-50 text-stone-600 border-stone-200';
+
+                      return (
+                        <div
+                          key={suggId}
+                          className="rounded-2xl border border-stone-200/90 overflow-hidden bg-white shadow-2xs"
+                        >
+                          {/* Accordion Header */}
+                          <div
+                            onClick={() => toggleExpand(suggId)}
+                            className="p-4 sm:p-5 flex items-start justify-between gap-3 cursor-pointer hover:bg-stone-50/70 transition-colors select-none"
+                          >
+                            <div className="space-y-1.5 flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border ${actionBadgeColors}`}>
+                                  {s.recommendedAction || 'Add'}
+                                </span>
+                                <span className={`text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded border ${priorityBadgeColors}`}>
+                                  Priority: {s.priority || s.severity || 'Medium'}
+                                </span>
+                                <span className="text-[10px] font-mono font-bold text-[#2d523e] bg-[#eaf2ed] px-2 py-0.5 rounded border border-[#d0e2d5]">
+                                  {s.legalMapping?.sectionOrRule || s.ruleId}
+                                </span>
+                              </div>
+                              <h4 className="text-sm sm:text-base font-bold text-stone-900 leading-snug">
+                                {s.findingTitle || s.title}
+                              </h4>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100"
+                              >
+                                {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Accordion Body */}
+                          {isExpanded && (
+                            <div className="p-5 sm:p-6 border-t border-stone-200 space-y-5 bg-[#fbfbfb]">
+                              {/* Current vs Recommended Content Comparison */}
+                              <div className="space-y-2">
+                                <span className="text-xs font-bold text-stone-900 uppercase tracking-wider block">
+                                  Current vs Recommended Content Comparison
+                                </span>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                  {/* Left: Existing Content on Website */}
+                                  <div className="p-4 rounded-xl bg-white border border-stone-200/90 space-y-1.5">
+                                    <span className="font-semibold text-stone-700 flex items-center gap-1.5">
+                                      <Layers className="w-3.5 h-3.5 text-stone-400" />
+                                      <span>Current Website Content (Observed)</span>
+                                    </span>
+                                    <p className="text-stone-600 italic leading-relaxed whitespace-pre-wrap font-mono text-[11px] bg-stone-50 p-2.5 rounded-lg border border-stone-200/60 max-h-36 overflow-y-auto">
+                                      {s.existingContent || 'No disclosure or mechanism found on the page.'}
+                                    </p>
+                                  </div>
+
+                                  {/* Right: What is Missing / Needs Improvement */}
+                                  <div className="p-4 rounded-xl bg-white border border-stone-200/90 space-y-1.5">
+                                    <span className="font-semibold text-rose-800 flex items-center gap-1.5">
+                                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                                      <span>What Needs to be Added / Corrected</span>
+                                    </span>
+                                    <p className="text-stone-700 leading-relaxed pt-0.5">
+                                      {s.missingOrInsufficient || s.explanation}
+                                    </p>
+                                    {s.priorityReason && (
+                                      <p className="text-[11px] text-stone-500 font-medium pt-1">
+                                        <strong>Why it matters:</strong> {s.priorityReason}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Placement Instructions Strip */}
+                              {s.placementInstructions && (
+                                <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/80 text-xs text-blue-900 space-y-1">
+                                  <span className="font-bold flex items-center gap-1.5">
+                                    <BookOpen className="w-3.5 h-3.5 text-blue-700" />
+                                    <span>Placement Instructions</span>
+                                  </span>
+                                  <p className="text-[11px] leading-relaxed text-blue-800">
+                                    <strong>Page:</strong> {s.placementInstructions.pageName || s.pageName} &bull; <strong>Section:</strong> {s.placementInstructions.sectionName}
+                                    <br />
+                                    <strong>Position:</strong> {s.placementInstructions.targetPosition}
+                                    {s.placementInstructions.details && ` (${s.placementInstructions.details})`}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Legal Mapping Details */}
+                              <div className="p-3.5 rounded-xl bg-stone-100/80 border border-stone-200 text-xs space-y-1">
+                                <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                                  <Scale className="w-3.5 h-3.5 text-stone-600" />
+                                  <span>Legal Mapping & Statutory Authority</span>
+                                </span>
+                                <p className="text-stone-600 leading-relaxed text-[11px]">
+                                  <strong>Source:</strong> {s.legalMapping?.sourceDocument || 'Digital Personal Data Protection Act, 2023'} &bull; <strong>Provision:</strong> {s.legalMapping?.sectionOrRule || s.ruleId}
+                                  {s.legalMapping?.schedule && ` &bull; ${s.legalMapping.schedule}`}
+                                  <br />
+                                  {s.legalMapping?.explanation}
+                                </p>
+                              </div>
+
+                              {/* Full Ready-to-Use Suggested Content */}
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Code className="w-3.5 h-3.5 text-[#2d523e]" />
+                                    <span>Ready-to-Use Suggested Content (Copy Directly)</span>
+                                  </span>
+                                  <button
+                                    onClick={() => handleCopy(s.readyToUseContent, suggId)}
+                                    className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold shadow-2xs transition-all ${
+                                      isCopied
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'bg-white hover:bg-stone-100 border border-stone-200 text-[#2d523e]'
+                                    }`}
+                                  >
+                                    {isCopied ? (
+                                      <>
+                                        <Check className="w-3.5 h-3.5" />
+                                        <span>Copied Content!</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3.5 h-3.5" />
+                                        <span>Copy Content</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                <div className="relative rounded-xl border border-stone-300 bg-[#0f172a] p-4 text-stone-100 font-mono text-xs overflow-x-auto max-h-96">
+                                  <pre className="whitespace-pre-wrap leading-relaxed">
+                                    {s.readyToUseContent}
+                                  </pre>
+                                </div>
+                              </div>
+
+                              {/* Customization Checklist */}
+                              {s.customizationRequirements && s.customizationRequirements.length > 0 && (
+                                <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200/90 text-xs space-y-2">
+                                  <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                                    <CheckSquare className="w-4 h-4 text-amber-700" />
+                                    <span>Customization Requirements (Verify Before Publishing)</span>
+                                  </span>
+                                  <ul className="text-amber-900 space-y-1 list-disc list-inside leading-relaxed text-[11px]">
+                                    {s.customizationRequirements.map((cr, crIdx) => (
+                                      <li key={crIdx}>{cr}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Statutory Disclaimer Strip */}
+                              <div className="text-[10px] text-stone-500 italic bg-white p-2.5 rounded-lg border border-stone-200/70">
+                                <strong>Legal Note:</strong> This draft content is an automated compliance remediation aid based on the DPDP Act 2023 and DPDP Rules 2025. Does not constitute legal representation or guarantee statutory compliance. Replace placeholders and obtain legal review prior to publishing.
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-8 rounded-2xl bg-white border border-stone-200 text-center space-y-2">
+            <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+            <h4 className="text-sm font-bold text-stone-900">All Content Disclosures Satisfied</h4>
+            <p className="text-xs text-stone-500">No missing or partial content disclosures were detected on inspected pages.</p>
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================== */}
+      {/* DEDICATED SECTION: UPCOMING COMPLIANCE / READINESS GAPS */}
+      {/* ============================================================== */}
+      {upcomingGaps.length > 0 && (
+        <div className="p-6 rounded-3xl bg-[#f8fafc] border border-blue-200 shadow-2xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-blue-100 pb-3">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-blue-600" />
+                <span>Upcoming Compliance & Readiness Gaps ({upcomingGaps.length})</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Provisions published in official notifications that take effect in upcoming phases. These are not current violations, but readiness gaps to prepare for early.
+              </p>
+            </div>
+            <span className="px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-semibold text-xs border border-blue-200 font-mono">
+              Phased Enforcement
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {upcomingGaps.map((ug, idx) => (
+              <div
+                key={idx}
+                className="p-4 rounded-2xl bg-white border border-blue-100/90 shadow-2xs space-y-2 text-xs"
+              >
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      {ug.ruleId}
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-500">
+                      Effective Date: {ug.effectiveDate || '2027-05-13'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                    Readiness Gap (Not Penalized)
+                  </span>
+                </div>
+
+                <h4 className="text-sm font-bold text-slate-900">{ug.title}</h4>
+                <p className="text-slate-600 leading-relaxed text-[11px]">{ug.aiInterpretation || ug.explanation}</p>
+                <div className="p-2.5 rounded-lg bg-blue-50/50 border border-blue-100 text-[11px] text-blue-800">
+                  <strong>Recommended Readiness Action:</strong> {ug.recommendedRemediation}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Explicit Limitations Section (Per Requirement) */}
       <div className="p-6 rounded-2xl bg-white border border-stone-200/90 shadow-2xs space-y-3">

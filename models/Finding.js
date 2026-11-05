@@ -161,6 +161,37 @@ const FindingSchema = new mongoose.Schema(
       snippet: String,
       detectedAt: { type: Date, default: Date.now },
     },
+    // AI-Powered Ready-to-Use Content Update Suggestions
+    contentSuggestion: {
+      pageUrl: { type: String, default: '' },
+      pageName: { type: String, default: '' },
+      findingTitle: { type: String, default: '' },
+      existingContent: { type: String, default: '' },
+      missingOrInsufficient: { type: String, default: '' },
+      recommendedAction: { type: String, default: 'Add' },
+      readyToUseContent: { type: String, default: '' },
+      placementInstructions: {
+        pageName: { type: String, default: '' },
+        sectionName: { type: String, default: '' },
+        targetPosition: { type: String, default: '' },
+        isNewSection: { type: Boolean, default: false },
+        details: { type: String, default: '' },
+      },
+      legalMapping: {
+        sourceDocument: { type: String, default: 'Digital Personal Data Protection Act, 2023' },
+        sectionOrRule: { type: String, default: '' },
+        schedule: { type: String, default: '' },
+        explanation: { type: String, default: '' },
+        commencementStatus: { type: String, default: 'in_force' },
+        effectiveDate: { type: String, default: null },
+      },
+      customizationRequirements: { type: [String], default: [] },
+      priority: { type: String, default: 'Medium' },
+      priorityReason: { type: String, default: '' },
+      requiresLegalReview: { type: Boolean, default: false },
+      generatedAt: { type: Date, default: Date.now },
+      disclaimer: { type: String, default: '' },
+    },
     // Remediation Tracker Assignment & Notes
     assignedTo: {
       type: String,

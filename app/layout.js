@@ -22,8 +22,8 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen antialiased flex flex-col">
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen antialiased flex flex-col" suppressHydrationWarning>
         <AppShell>{children}</AppShell>
       </body>
     </html>

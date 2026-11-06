@@ -207,6 +207,23 @@ export async function GET(request) {
         }
       }
 
+      // Enrich findings with screenshot URLs from matching scenarios if not already present
+      for (const f of findings) {
+        if (!f.screenshotUrl && !f.evidence?.screenshotUrl) {
+          const matchSc = scenarios.find(
+            (sc) =>
+              sc.screenshotUrl &&
+              (sc.category === f.category ||
+                sc.pageUrl === f.contentSuggestion?.pageUrl ||
+                sc.pageUrl === f.evidence?.pageUrl ||
+                sc.scenarioId === f.category)
+          );
+          if (matchSc?.screenshotUrl) {
+            f.screenshotUrl = matchSc.screenshotUrl;
+          }
+        }
+      }
+
       const pageContentUpdates = groupSuggestionsByPage(findings);
       const upcomingComplianceGaps = findings.filter(
         (f) => f.legalApplicabilityStatus === 'not_yet_in_force' || (f.effectiveDate && new Date(f.effectiveDate) > new Date())

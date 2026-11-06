@@ -30,7 +30,8 @@ import {
   Code,
   FileCode,
   CheckSquare,
-  Clock
+  Clock,
+  ArrowRight
 } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import ReassessmentModal from '@/components/ReassessmentModal';
@@ -178,6 +179,13 @@ ${(cs.customizationRequirements || []).map((c) => `[ ] ${c}`).join('\n')}
           if (!map.has(key)) {
             map.set(key, { pageName: key, pageUrl: cs.pageUrl || '', suggestions: [] });
           }
+          const screenshotUrl =
+            f.evidence?.screenshotUrl ||
+            f.screenshotUrl ||
+            (f.evidenceReferences && f.evidenceReferences[0]?.screenshotPath) ||
+            scenarios.find((sc) => sc.targetUrl === cs.pageUrl || sc.pageUrl === cs.pageUrl || sc.category === f.category)?.screenshotUrl ||
+            null;
+
           map.get(key).suggestions.push({
             findingId: f._id || f.requirementId,
             requirementId: f.requirementId,
@@ -185,6 +193,7 @@ ${(cs.customizationRequirements || []).map((c) => `[ ] ${c}`).join('\n')}
             title: f.title,
             status: f.status,
             severity: f.severity,
+            screenshotUrl,
             ...cs,
           });
         }
@@ -748,6 +757,78 @@ ${(cs.customizationRequirements || []).map((c) => `[ ] ${c}`).join('\n')}
                           {/* Accordion Body */}
                           {isExpanded && (
                             <div className="p-5 sm:p-6 border-t border-stone-200 space-y-5 bg-[#fbfbfb]">
+                              {/* Audited Interface Screenshot Evidence */}
+                              {(() => {
+                                const suggestionScreenshot =
+                                  s.screenshotUrl ||
+                                  findings?.find((f) => String(f._id) === String(s.findingId) || f.requirementId === s.requirementId)?.evidence?.screenshotUrl ||
+                                  findings?.find((f) => String(f._id) === String(s.findingId) || f.requirementId === s.requirementId)?.screenshotUrl ||
+                                  scenarios?.find((sc) => sc.targetUrl === s.pageUrl || sc.pageUrl === s.pageUrl || sc.category === s.category)?.screenshotUrl ||
+                                  scenarios?.find((sc) => sc.evidenceIds?.[0]?.screenshotPath)?.evidenceIds?.[0]?.screenshotPath ||
+                                  null;
+
+                                if (!suggestionScreenshot) return null;
+
+                                return (
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5 text-[11px]">
+                                        <Camera className="w-3.5 h-3.5 text-[#2d523e]" />
+                                        <span>Audited Interface Screenshot Requiring Content Remediation</span>
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewScreenshot(suggestionScreenshot)}
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2d523e] hover:text-[#1e382a] transition-colors cursor-pointer"
+                                      >
+                                        <span>Enlarge Full Screenshot</span>
+                                        <ArrowRight className="w-3 h-3" />
+                                      </button>
+                                    </div>
+
+                                    <div
+                                      onClick={() => setPreviewScreenshot(suggestionScreenshot)}
+                                      className="rounded-2xl border border-stone-200/90 overflow-hidden bg-slate-900 shadow-2xs cursor-pointer group relative"
+                                    >
+                                      {/* Browser Mockup Top Bar */}
+                                      <div className="px-3.5 py-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
+                                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                                          </div>
+                                          <div className="px-2.5 py-0.5 rounded-md bg-slate-800 text-[10px] font-mono text-slate-300 truncate max-w-sm flex items-center gap-1.5">
+                                            <span className="text-emerald-400 font-bold">SSL</span>
+                                            <span className="text-slate-400">&bull;</span>
+                                            <span>{s.pageUrl || 'Audited Web Interface'}</span>
+                                          </div>
+                                        </div>
+                                        <span className="text-[10px] font-mono text-slate-400 shrink-0 hidden sm:inline">
+                                          Click to Enlarge
+                                        </span>
+                                      </div>
+
+                                      {/* Screenshot Viewport */}
+                                      <div className="relative max-h-56 sm:max-h-64 overflow-hidden bg-slate-950 flex items-start justify-center">
+                                        <img
+                                          src={suggestionScreenshot}
+                                          alt={s.findingTitle || 'Audited interface evidence screenshot'}
+                                          className="w-full object-cover object-top opacity-90 group-hover:opacity-100 transition-opacity"
+                                          loading="lazy"
+                                        />
+                                        <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                          <span className="px-3 py-1.5 rounded-xl bg-slate-900/95 text-white text-xs font-semibold shadow-lg flex items-center gap-1.5 border border-slate-700">
+                                            <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span>Click to View Full Inspection Screenshot</span>
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
                               {/* Current vs Recommended Content Comparison */}
                               <div className="space-y-2">
                                 <span className="text-xs font-bold text-stone-900 uppercase tracking-wider block">

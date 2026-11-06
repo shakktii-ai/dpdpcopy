@@ -343,6 +343,61 @@ async function main() {
         low: 1,
       },
       calculatedScore: 64,
+      scenarioResults: [
+        {
+          scenarioId: 'notice_and_consent',
+          title: 'Notice & Explicit Consent Verification',
+          category: 'notice_and_consent',
+          status: 'failed',
+          targetUrl: 'https://bharatdigitalhealth.in/patient-portal/register',
+          screenshotUrl: 'https://cdn.example.com/screenshot1.png',
+          observedFindings: [
+            'Pre-checked promotional SMS checkbox detected on registration interface',
+            'No separate unbundled consent option provided for telemedicine health telemetry',
+          ],
+        },
+        {
+          scenarioId: 'grievance_redressal',
+          title: 'Grievance Redressal Officer Contact Evaluation',
+          category: 'grievance_redressal',
+          status: 'passed',
+          targetUrl: 'https://bharatdigitalhealth.in/privacy',
+          screenshotUrl: 'https://cdn.example.com/screenshot2.png',
+          observedFindings: [
+            'Dedicated Data Protection & Grievance Officer details published with official email address',
+            'Resolution mechanism SLA stated within statutory 30-day window',
+          ],
+        },
+      ],
+      evidenceList: [
+        {
+          scenarioId: 'notice_and_consent',
+          evidenceType: 'screenshot',
+          pageUrl: 'https://bharatdigitalhealth.in/patient-portal/register',
+          pageTitle: 'Patient Onboarding - Consent Step',
+          screenshotPath: 'https://cdn.example.com/screenshot1.png',
+          extractedContent: 'Registration DOM with consent inputs',
+        },
+        {
+          scenarioId: 'grievance_redressal',
+          evidenceType: 'screenshot',
+          pageUrl: 'https://bharatdigitalhealth.in/privacy',
+          pageTitle: 'Privacy Policy & Grievance Redressal',
+          screenshotPath: 'https://cdn.example.com/screenshot2.png',
+          extractedContent: 'Section 9: Grievance Officer Contact Details',
+        },
+      ],
+      screenshotBuffers: new Map([
+        // Valid 1x1 transparent PNG buffer to verify embedded image rendering
+        [
+          'https://cdn.example.com/screenshot1.png',
+          Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+            'base64'
+          ),
+        ],
+        // screenshot2 is intentionally omitted to verify graceful Evidence Vault fallback rendering
+      ]),
       findings: [
         {
           requirementId: 'DPDP-ACT-SEC-6-CONSENT',
